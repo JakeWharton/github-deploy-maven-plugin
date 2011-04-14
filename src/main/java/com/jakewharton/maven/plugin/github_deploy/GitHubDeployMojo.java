@@ -306,6 +306,12 @@ public class GitHubDeployMojo extends AbstractMojo {
 	
 	@Override
 	public void execute() throws MojoFailureException {
+		//Do not run if we have been told to skip
+		if (this.skip) {
+			this.getLog().info(INFO_SKIP);
+			return;
+		}
+		
 		//Perform initialization
 		this.initialize();
 
@@ -340,12 +346,6 @@ public class GitHubDeployMojo extends AbstractMojo {
 	}
 	
 	private void initialize() throws MojoFailureException {
-		//Do not run if we have been told to skip
-		if (this.skip) {
-			this.getLog().info(INFO_SKIP);
-			return;
-		}
-		
 		//Check we are not working offline
 		if (this.settings.isOffline()) {
 			this.error(ERROR_OFFLINE);
