@@ -570,4 +570,97 @@ public class GitHubDeployMojo extends AbstractMojo {
 		}
 		return null; //Never reached
 	}
+
+	
+	String getScmUrl() {
+		return this.scmUrl;
+	}
+
+	void setScmUrl(String scmUrl) {
+		this.scmUrl = scmUrl;
+	}
+
+	String getRepoOwner() {
+		return this.repoOwner;
+	}
+
+	void setRepoOwner(String repoOwner) {
+		this.repoOwner = repoOwner;
+	}
+
+	String getRepoName() {
+		return this.repoName;
+	}
+
+	void setRepoName(String repoName) {
+		this.repoName = repoName;
+	}
+
+	boolean isSkip() {
+		return this.skip;
+	}
+
+	void setSkip(boolean skip) {
+		this.skip = skip;
+	}
+
+	boolean isReplaceExisting() {
+		return this.replaceExisting;
+	}
+
+	void setReplaceExisting(boolean replaceExisting) {
+		this.replaceExisting = replaceExisting;
+	}
+
+	String getGithubLogin() {
+		return this.githubLogin;
+	}
+
+	void setGithubLogin(String githubLogin) {
+		this.githubLogin = githubLogin;
+	}
+
+	String getGithubToken() {
+		return this.githubToken;
+	}
+
+	void setGithubToken(String githubToken) {
+		this.githubToken = githubToken;
+	}
+
+	File getFile() {
+		return this.file;
+	}
+
+	void setFile(File file) {
+		this.file = file;
+	}
+
+	Settings getSettings() {
+		return this.settings;
+	}
+
+	void setSettings(Settings settings) {
+		this.settings = settings;
+	}
+
+	Map<String, GitHubDownload> getExistingDownloads() {
+		return this.existingDownloads;
+	}
+
+	void setExistingDownloads(Map<String, GitHubDownload> existingDownloads) {
+		this.existingDownloads = existingDownloads;
+	}
+
+	String getAuthToken() {
+		return this.authToken;
+	}
+
+	void setAuthToken(String authToken) {
+		this.authToken = authToken;
+	}
+
+	HttpClient getHttpClient() {
+		return this.httpClient;
+	}
 }
