@@ -79,6 +79,8 @@ public class GitHubDeployMojo extends AbstractMojo {
 	static final String DEBUG_CHECK_DOWNLOAD = STRINGS.getString("DEBUG_CHECK_DOWNLOAD");
 	/** No settings.xml GitHub credentials debugging message. */
 	static final String DEBUG_NO_SETTINGS_CREDENTIALS = STRINGS.getString("DEBUG_NO_SETTINGS_CREDENTIALS");
+	/** Successful deployment debugging message. */
+	static final String DEBUG_DEPLOY_SUCCESS = STRINGS.getString("DEBUG_DEPLOY_SUCCESS");
 	/** Execution done debugging message. */
 	static final String DEBUG_DONE = STRINGS.getString("DEBUG_DONE");
 	
@@ -311,10 +313,6 @@ public class GitHubDeployMojo extends AbstractMojo {
 		this.loadRepositoryInformation();
 		this.loadRepositoryCredentials();
 
-
-		/** CHECK EXISTING DOWNLOADS **/
-
-
 		//Perform existing downloads request
 		this.getLog().info(INFO_CHECK_DOWNLOADS);
 		String dlCheckUrl = String.format(URL_DOWNLOADS_WITH_AUTH, this.repo, this.githubLogin, this.githubToken);
@@ -337,70 +335,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 			}
 		}
 
-		
-		/** SEND DEPLOY INFORMATION AND GET S3 CREDENTIALS **/
-		
-		
-		//Perform upload info request
-		this.getLog().info(INFO_DEPLOY_INFO);
-		String deployInfoUrl = String.format(URL_DOWNLOADS, this.repo);
-		this.getLog().debug("DEPLOY INFO URL: " + deployInfoUrl);
-		HttpPost deployInfo = new HttpPost(deployInfoUrl);
-		BasicHttpEntity deployInfoEntity = new BasicHttpEntity(); 
-		String deployInfoBody = String.format(ENTITY_DEPLOY_INFO, this.githubLogin, this.githubToken, this.file.length(), MIME_TYPE, this.file.getName());
-		deployInfoEntity.setContent(IOUtils.toInputStream(deployInfoBody));
-		deployInfo.setEntity(deployInfoEntity);
-		String deployInfoContent = this.checkedExecute(deployInfo, HttpStatus.SC_OK, ERROR_DEPLOY_INFO);
-		
-		//Parse JSON response
-		JSONObject postData = null;
-		try {
-			postData = new JSONObject(deployInfoContent);
-		} catch (JSONException e) {
-			this.error(e, ERROR_JSON_PARSE);
-		}
-		
-		//Extract needed information
-		String prefix = this.checkedJsonProperty(postData, JSON_PROPERTY_PREFIX);
-		String key = prefix + this.file.getName();
-		String policy = this.checkedJsonProperty(postData, JSON_PROPERTY_POLICY);
-		String accessKeyId = this.checkedJsonProperty(postData, JSON_PROPERTY_ACCESS_KEY_ID);
-		String signature = this.checkedJsonProperty(postData, JSON_PROPERTY_SIGNATURE);
-		String acl = this.checkedJsonProperty(postData, JSON_PROPERTY_ACL);
-		this.getLog().debug("PREFIX: " + prefix);
-		this.getLog().debug("KEY: " + key);
-		this.getLog().debug("POLICY: " + policy);
-		this.getLog().debug("ACCESS KEY ID: " + accessKeyId);
-		this.getLog().debug("SIGNATURE: " + signature);
-		this.getLog().debug("ACL: " + acl);
-		
-		
-		/** DEPLOY ARTIFACT TO S3 **/
-		
-		
-		//Set up deploy request
-		this.getLog().info(String.format(INFO_DEPLOY, this.file.getName()));
-		this.getLog().debug("DEPLOY URL: " + URL_DEPLOY);
-		HttpPost upload = new HttpPost(URL_DEPLOY);
-		MultipartEntity uploadEntity = new MultipartEntity();
-		try {
-			uploadEntity.addPart(HTTP_PROPERTY_KEY, new StringBody(key));
-			uploadEntity.addPart(HTTP_PROPERTY_ACL, new StringBody(acl));
-			uploadEntity.addPart(HTTP_PROPERTY_FILENAME, new StringBody(this.file.getName()));
-			uploadEntity.addPart(HTTP_PROPERTY_POLICY, new StringBody(policy));
-			uploadEntity.addPart(HTTP_PROPERTY_AWS_ACCESS_ID, new StringBody(accessKeyId));
-			uploadEntity.addPart(HTTP_PROPERTY_SIGNATURE, new StringBody(signature));
-			uploadEntity.addPart(HTTP_PROPERTY_SUCCESS_ACTION_STATUS, new StringBody(Integer.toString(HttpStatus.SC_CREATED)));
-			uploadEntity.addPart(HTTP_PROPERTY_CONTENT_TYPE, new StringBody(MIME_TYPE));
-			uploadEntity.addPart(HTTP_PROPERTY_FILE, new FileBody(this.file));
-		} catch (UnsupportedEncodingException e) {
-			this.error(e, ERROR_ENCODING);
-		}
-		upload.setEntity(uploadEntity);
-		
-		//Perform deployment
-		this.checkedExecute(upload, HttpStatus.SC_CREATED, ERROR_DEPLOYING);
-		
+		this.deploy(this.file);
 		this.getLog().debug(DEBUG_DONE);
 	}
 	
@@ -508,5 +443,65 @@ public class GitHubDeployMojo extends AbstractMojo {
 		
 		//Perform request
 		this.checkedExecute(dlDelete, HttpStatus.SC_MOVED_TEMPORARILY, ERROR_DOWNLOAD_DELETE);
+	}
+	
+	private void deploy(File artifact) throws MojoFailureException {
+		//Perform upload info request
+		this.getLog().info(INFO_DEPLOY_INFO);
+		String deployInfoUrl = String.format(URL_DOWNLOADS, this.repo);
+		this.getLog().debug("DEPLOY INFO URL: " + deployInfoUrl);
+		HttpPost deployInfo = new HttpPost(deployInfoUrl);
+		BasicHttpEntity deployInfoEntity = new BasicHttpEntity(); 
+		String deployInfoBody = String.format(ENTITY_DEPLOY_INFO, this.githubLogin, this.githubToken, artifact.length(), MIME_TYPE, artifact.getName());
+		deployInfoEntity.setContent(IOUtils.toInputStream(deployInfoBody));
+		deployInfo.setEntity(deployInfoEntity);
+		String deployInfoContent = this.checkedExecute(deployInfo, HttpStatus.SC_OK, ERROR_DEPLOY_INFO);
+		
+		//Parse JSON response
+		JSONObject postData = null;
+		try {
+			postData = new JSONObject(deployInfoContent);
+		} catch (JSONException e) {
+			this.error(e, ERROR_JSON_PARSE);
+		}
+		
+		//Extract needed information
+		String prefix = this.checkedJsonProperty(postData, JSON_PROPERTY_PREFIX);
+		String key = prefix + artifact.getName();
+		String policy = this.checkedJsonProperty(postData, JSON_PROPERTY_POLICY);
+		String accessKeyId = this.checkedJsonProperty(postData, JSON_PROPERTY_ACCESS_KEY_ID);
+		String signature = this.checkedJsonProperty(postData, JSON_PROPERTY_SIGNATURE);
+		String acl = this.checkedJsonProperty(postData, JSON_PROPERTY_ACL);
+		this.getLog().debug("PREFIX: " + prefix);
+		this.getLog().debug("KEY: " + key);
+		this.getLog().debug("POLICY: " + policy);
+		this.getLog().debug("ACCESS KEY ID: " + accessKeyId);
+		this.getLog().debug("SIGNATURE: " + signature);
+		this.getLog().debug("ACL: " + acl);
+		
+		
+		//Set up deploy request
+		this.getLog().info(String.format(INFO_DEPLOY, artifact.getName()));
+		this.getLog().debug("DEPLOY URL: " + URL_DEPLOY);
+		HttpPost upload = new HttpPost(URL_DEPLOY);
+		MultipartEntity uploadEntity = new MultipartEntity();
+		try {
+			uploadEntity.addPart(HTTP_PROPERTY_KEY, new StringBody(key));
+			uploadEntity.addPart(HTTP_PROPERTY_ACL, new StringBody(acl));
+			uploadEntity.addPart(HTTP_PROPERTY_FILENAME, new StringBody(artifact.getName()));
+			uploadEntity.addPart(HTTP_PROPERTY_POLICY, new StringBody(policy));
+			uploadEntity.addPart(HTTP_PROPERTY_AWS_ACCESS_ID, new StringBody(accessKeyId));
+			uploadEntity.addPart(HTTP_PROPERTY_SIGNATURE, new StringBody(signature));
+			uploadEntity.addPart(HTTP_PROPERTY_SUCCESS_ACTION_STATUS, new StringBody(Integer.toString(HttpStatus.SC_CREATED)));
+			uploadEntity.addPart(HTTP_PROPERTY_CONTENT_TYPE, new StringBody(MIME_TYPE));
+			uploadEntity.addPart(HTTP_PROPERTY_FILE, new FileBody(artifact));
+		} catch (UnsupportedEncodingException e) {
+			this.error(e, ERROR_ENCODING);
+		}
+		upload.setEntity(uploadEntity);
+		
+		//Perform deployment
+		this.checkedExecute(upload, HttpStatus.SC_CREATED, ERROR_DEPLOYING);
+		this.getLog().debug(String.format(DEBUG_DEPLOY_SUCCESS, artifact.getName(), this.repo));
 	}
 }
