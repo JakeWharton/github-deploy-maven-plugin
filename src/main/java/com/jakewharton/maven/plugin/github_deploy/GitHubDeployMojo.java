@@ -231,79 +231,6 @@ public class GitHubDeployMojo extends AbstractMojo {
 	private final HttpClient httpClient = new DefaultHttpClient();
 	
 	
-	/**
-	 * Display and throw error.
-	 * 
-	 * @param message Error message.
-	 * @param messageArgs Any arguments for formatting the error message.
-	 * @throws MojoFailureException
-	 */
-	private void error(String message, Object... messageArgs) throws MojoFailureException {
-		String formattedMessage = String.format(message, messageArgs);
-		this.getLog().error(formattedMessage);
-		throw new MojoFailureException(formattedMessage);
-	}
-	
-	/**
-	 * Display and throw error.
-	 * 
-	 * @param cause Cause of the error.
-	 * @param message Error message.
-	 * @param messageArgs Any arguments for formatting the error message.
-	 * @throws MojoFailureException
-	 */
-	private void error(Throwable cause, String message, Object... messageArgs) throws MojoFailureException {
-		String formattedMessage = String.format(message, messageArgs);
-		this.getLog().error(formattedMessage);
-		this.getLog().error(cause.getLocalizedMessage());
-		throw new MojoFailureException(formattedMessage, cause);
-	}
-	
-	/**
-	 * Execute an HTTP request in a checked manner.
-	 * 
-	 * @param request Request to execute.
-	 * @param expectedStatus Expected HTTP return status.
-	 * @param errorMessage Error message to display is status does not match.
-	 * @return Contents of return body.
-	 * @throws MojoFailureException
-	 */
-	private String checkedExecute(HttpUriRequest request, int expectedStatus, String errorMessage) throws MojoFailureException {
-		try {
-			HttpResponse response = this.httpClient.execute(request);
-			
-			int status = response.getStatusLine().getStatusCode();
-			this.getLog().debug("HTTP status code: " + status);
-			if (status == expectedStatus) {
-				return IOUtils.toString(response.getEntity().getContent());
-			}
-		} catch (ClientProtocolException e) {
-			this.error(e, errorMessage);
-		} catch (IOException e) {
-			this.error(e, errorMessage);
-		}
-		
-		this.error(errorMessage);
-		return null; //Never reached
-	}
-	
-	/**
-	 * Fetch a JSON object property in a checked manner.
-	 * 
-	 * @param object JSON object.
-	 * @param propertyName Name of property.
-	 * @return Property value.
-	 * @throws MojoFailureException
-	 */
-	private String checkedJsonProperty(JSONObject object, String propertyName) throws MojoFailureException {
-		try {
-			return object.getString(propertyName);
-		} catch (JSONException e) {
-			this.error(e, ERROR_JSON_PROPERTIES);
-		}
-		return null; //Never reached
-	}
-	
 	@Override
 	public void execute() throws MojoFailureException {
 		//Do not run if we have been told to skip
@@ -569,5 +496,78 @@ public class GitHubDeployMojo extends AbstractMojo {
 		//Perform deployment
 		this.checkedExecute(upload, HttpStatus.SC_CREATED, ERROR_DEPLOYING);
 		this.getLog().debug(String.format(DEBUG_DEPLOY_SUCCESS, artifact.getName(), this.repo));
+	}
+
+	/**
+	 * Display and throw error.
+	 * 
+	 * @param message Error message.
+	 * @param messageArgs Any arguments for formatting the error message.
+	 * @throws MojoFailureException
+	 */
+	private void error(String message, Object... messageArgs) throws MojoFailureException {
+		String formattedMessage = String.format(message, messageArgs);
+		this.getLog().error(formattedMessage);
+		throw new MojoFailureException(formattedMessage);
+	}
+	
+	/**
+	 * Display and throw error.
+	 * 
+	 * @param cause Cause of the error.
+	 * @param message Error message.
+	 * @param messageArgs Any arguments for formatting the error message.
+	 * @throws MojoFailureException
+	 */
+	private void error(Throwable cause, String message, Object... messageArgs) throws MojoFailureException {
+		String formattedMessage = String.format(message, messageArgs);
+		this.getLog().error(formattedMessage);
+		this.getLog().error(cause.getLocalizedMessage());
+		throw new MojoFailureException(formattedMessage, cause);
+	}
+	
+	/**
+	 * Execute an HTTP request in a checked manner.
+	 * 
+	 * @param request Request to execute.
+	 * @param expectedStatus Expected HTTP return status.
+	 * @param errorMessage Error message to display is status does not match.
+	 * @return Contents of return body.
+	 * @throws MojoFailureException
+	 */
+	private String checkedExecute(HttpUriRequest request, int expectedStatus, String errorMessage) throws MojoFailureException {
+		try {
+			HttpResponse response = this.httpClient.execute(request);
+			
+			int status = response.getStatusLine().getStatusCode();
+			this.getLog().debug("HTTP status code: " + status);
+			if (status == expectedStatus) {
+				return IOUtils.toString(response.getEntity().getContent());
+			}
+		} catch (ClientProtocolException e) {
+			this.error(e, errorMessage);
+		} catch (IOException e) {
+			this.error(e, errorMessage);
+		}
+		
+		this.error(errorMessage);
+		return null; //Never reached
+	}
+	
+	/**
+	 * Fetch a JSON object property in a checked manner.
+	 * 
+	 * @param object JSON object.
+	 * @param propertyName Name of property.
+	 * @return Property value.
+	 * @throws MojoFailureException
+	 */
+	private String checkedJsonProperty(JSONObject object, String propertyName) throws MojoFailureException {
+		try {
+			return object.getString(propertyName);
+		} catch (JSONException e) {
+			this.error(e, ERROR_JSON_PROPERTIES);
+		}
+		return null; //Never reached
 	}
 }
