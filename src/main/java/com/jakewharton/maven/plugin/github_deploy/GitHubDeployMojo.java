@@ -228,7 +228,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 	/**
 	 * Common HTTP client.
 	 */
-	private final HttpClient httpClient = new DefaultHttpClient();
+	private HttpClient httpClient;
 	
 	
 	@Override
@@ -274,7 +274,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * 
 	 * @throws MojoFailureException
 	 */
-	private void initialize() throws MojoFailureException {
+	void initialize() throws MojoFailureException {
 		//Check we are not working offline
 		if (this.settings.isOffline()) {
 			this.error(ERROR_OFFLINE);
@@ -286,6 +286,8 @@ public class GitHubDeployMojo extends AbstractMojo {
         }
 		this.getLog().debug("PATH: " + this.file.getAbsolutePath());
 		this.getLog().debug("NAME: " + this.file.getName());
+		
+		this.httpClient = new DefaultHttpClient();
 	}
 	
 	/**
@@ -295,7 +297,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * 
 	 * @throws MojoFailureException
 	 */
-	private void loadRepositoryInformation() throws MojoFailureException {
+	void loadRepositoryInformation() throws MojoFailureException {
 		if (StringUtils.isBlank(this.repoOwner) || StringUtils.isBlank(this.repoName)) {
 			//Get the target repository
 			Matcher match = REGEX_REPO.matcher(this.scmUrl);
@@ -322,7 +324,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * 
 	 * @throws MojoFailureException
 	 */
-	private void loadRepositoryCredentials() throws MojoFailureException {
+	void loadRepositoryCredentials() throws MojoFailureException {
 		if (StringUtils.isBlank(this.githubLogin) || StringUtils.isBlank(this.githubToken)) {
 			//Attempt to get GitHub credentials from settings and git if not already specified
 			Server githubDeploy = this.settings.getServer(SETTINGS_SERVER_ID);
@@ -351,7 +353,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * 
 	 * @param content Page contents.
 	 */
-	private void parseExistingDownloads(String content) {
+	void parseExistingDownloads(String content) {
 		this.existingDownloads = new HashMap<String, GitHubDownload>();
 		
 		String regex = String.format(REGEX_DOWNLOADS, this.repo);
@@ -376,7 +378,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * @param content Page contents.
 	 * @throws MojoFailureException
 	 */
-	private void parseGitHubAuthenticationToken(String content) throws MojoFailureException {
+	void parseGitHubAuthenticationToken(String content) throws MojoFailureException {
 		Matcher authTokenMatcher = REGEX_AUTH_TOKEN.matcher(content);
 		if (authTokenMatcher.find()) {
 			this.authToken = authTokenMatcher.group();
@@ -392,7 +394,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * @param download Download to delete.
 	 * @throws MojoFailureException
 	 */
-	private void deleteExistingDownload(GitHubDownload download) throws MojoFailureException {
+	void deleteExistingDownload(GitHubDownload download) throws MojoFailureException {
 		//Setup download delete request
 		this.getLog().info(INFO_DELETE_EXISTING);
 		this.getLog().debug("DOWNLOAD DELETE URL: " + download.getDeleteUrl());					
@@ -412,7 +414,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * @return Page content.
 	 * @throws MojoFailureException
 	 */
-	private String loadExistingDownloadsContent() throws MojoFailureException {
+	String loadExistingDownloadsContent() throws MojoFailureException {
 		this.getLog().info(INFO_CHECK_DOWNLOADS);
 		String dlCheckUrl = String.format(URL_DOWNLOADS_WITH_AUTH, this.repo, this.githubLogin, this.githubToken);
 		this.getLog().debug("CHECK DOWNLOADS URL " + dlCheckUrl);
@@ -427,7 +429,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * @return S3 Authentication information
 	 * @throws MojoFailureException
 	 */
-	private JSONObject loadDeployInfoContent(File artifact) throws MojoFailureException {
+	JSONObject loadDeployInfoContent(File artifact) throws MojoFailureException {
 		this.getLog().info(INFO_DEPLOY_INFO);
 		String deployInfoUrl = String.format(URL_DOWNLOADS, this.repo);
 		this.getLog().debug("DEPLOY INFO URL: " + deployInfoUrl);
@@ -455,7 +457,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * @param artifact Artifact for deployment.
 	 * @throws MojoFailureException
 	 */
-	private void deploy(File artifact) throws MojoFailureException {
+	void deploy(File artifact) throws MojoFailureException {
 		//Perform upload info request
 		JSONObject deployInfo = this.loadDeployInfoContent(artifact);
 		
@@ -662,5 +664,8 @@ public class GitHubDeployMojo extends AbstractMojo {
 
 	HttpClient getHttpClient() {
 		return this.httpClient;
+	}
+	void setHttpClient(HttpClient httpClient) {
+		this.httpClient = httpClient;
 	}
 }
