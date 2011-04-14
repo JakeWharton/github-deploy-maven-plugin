@@ -83,9 +83,11 @@ public class GitHubDeployMojo extends AbstractMojo {
 	/** Git command to get GitHub user token. */
 	private static final String[] GIT_GITHUB_TOKEN = new String[] { "git", "config", "--global", "github.token" };
 	/** Regular expression to validate the pom.xml's SCM value. */
-	private static final Pattern REGEX_REPO = Pattern.compile("^scm:git:git@github.com:(.+?)\\.git$");
+	private static final Pattern REGEX_REPO = Pattern.compile("^scm:git:git@github.com:(.+?)/(.+?)\\.git$");
 	/** Regular expression to locate existing download entries. */
 	private static final String REGEX_DOWNLOADS = "<a href=\"/%1$s/downloads/([0-9]+)\"(?:.*?)'value', '([0-9a-f]+)'(?:.*?)<a href=\"/downloads/%1$s/(.*?)\">";
+	/** Repository seperator between owner and name. */
+	private static final String REPO_SEPERATOR = "/";
 	/** URL target for GitHub repo downloads. */
 	private static final String URL_DOWNLOADS = "https://github.com/%s/downloads";
 	/** URL target for GitHu repo downloads (including authentication). */
@@ -139,6 +141,25 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * @required
 	 */
 	private String scmUrl;
+	
+	/**
+	 * Target repository owner.
+	 * 
+	 * @parameter
+	 */
+	private String repoOwner;
+	
+	/**
+	 * Target repository name.
+	 * 
+	 * @parameter
+	 */
+	private String repoName;
+	
+	/**
+	 * Target repository string in the format "owner/name".
+	 */
+	private String repo;
 	
 	/**
 	 * Skip execution.
@@ -285,19 +306,25 @@ public class GitHubDeployMojo extends AbstractMojo {
 		this.getLog().debug("PATH: " + this.file.getAbsolutePath());
 		this.getLog().debug("NAME: " + this.file.getName());
 
-        //Get the target repository
-		Matcher match = REGEX_REPO.matcher(this.scmUrl);
-		if (!match.matches()) {
-			this.error(ERROR_SCM_INVALID);
+		if (StringUtils.isBlank(this.repoOwner) || StringUtils.isBlank(this.repoName)) {
+			//Get the target repository
+			Matcher match = REGEX_REPO.matcher(this.scmUrl);
+			if (!match.matches()) {
+				this.error(ERROR_SCM_INVALID);
+			}
+			this.getLog().debug("SCM URL: " + this.scmUrl);
+			
+			//Get the repo owner and name from the match
+			this.repoOwner = match.group(1);
+			this.repoName = match.group(2);
 		}
-		this.getLog().debug("SCM URL: " + this.scmUrl);
+		this.repo = this.repoOwner + REPO_SEPERATOR + this.repoName;
+		this.getLog().debug("REPO OWNER: " + this.repoOwner);
+		this.getLog().debug("REPO NAME: " + this.repoName);
+		this.getLog().debug("REPO: " + this.repo);
 
-		//Get the repo owner and name from the match
-		String repo = match.group(1);
-		this.getLog().debug("REPO: " + repo);
-
-		//Attempt to get GitHub credentials from settings and git if not already specified
-		if (StringUtils.isBlank(this.githubLogin) && StringUtils.isBlank(this.githubToken)) {
+		if (StringUtils.isBlank(this.githubLogin) || StringUtils.isBlank(this.githubToken)) {
+			//Attempt to get GitHub credentials from settings and git if not already specified
 			Server githubDeploy = this.settings.getServer(SETTINGS_SERVER_ID);
 			if (githubDeploy != null) {
 				this.githubLogin = githubDeploy.getUsername();
@@ -324,13 +351,13 @@ public class GitHubDeployMojo extends AbstractMojo {
 		
 		//Perform existing downloads request
 		this.getLog().info(INFO_CHECK_DOWNLOADS);
-		String dlCheckUrl = String.format(URL_DOWNLOADS_WITH_AUTH, repo, this.githubLogin, this.githubToken);
+		String dlCheckUrl = String.format(URL_DOWNLOADS_WITH_AUTH, this.repo, this.githubLogin, this.githubToken);
 		this.getLog().debug("CHECK DOWNLOADS URLL " + dlCheckUrl);
 		HttpGet dlCheck = new HttpGet(dlCheckUrl);
 		String dlCheckContent = this.checkedExecute(dlCheck, HttpStatus.SC_OK, ERROR_CHECK_DOWNLOADS);
 
 		//Check for existing download for current artifact
-		Pattern downloadsRegex = Pattern.compile(String.format(REGEX_DOWNLOADS, repo), Pattern.DOTALL);
+		Pattern downloadsRegex = Pattern.compile(String.format(REGEX_DOWNLOADS, this.repo), Pattern.DOTALL);
 		Matcher downloads = downloadsRegex.matcher(dlCheckContent);
 		while (downloads.find()) {
 			this.getLog().debug(String.format(DEBUG_CHECK_DOWNLOAD, downloads.group(1)));
@@ -344,7 +371,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 					
 					//Setup download delete request
 					this.getLog().info(INFO_DELETE_EXISTING);
-					String dlDeleteUrl = String.format(URL_DOWNLOAD_DELETE, repo, downloadId);
+					String dlDeleteUrl = String.format(URL_DOWNLOAD_DELETE, this.repo, downloadId);
 					this.getLog().debug("DOWNLOAD DELETE URL: " + dlDeleteUrl);					
 					HttpPost dlDelete = new HttpPost(dlDeleteUrl);
 					BasicHttpEntity dlDeleteEntity = new BasicHttpEntity();
@@ -367,7 +394,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 		
 		//Perform upload info request
 		this.getLog().info(INFO_DEPLOY_INFO);
-		String deployInfoUrl = String.format(URL_DOWNLOADS, repo);
+		String deployInfoUrl = String.format(URL_DOWNLOADS, this.repo);
 		this.getLog().debug("DEPLOY INFO URL: " + deployInfoUrl);
 		HttpPost deployInfo = new HttpPost(deployInfoUrl);
 		BasicHttpEntity deployInfoEntity = new BasicHttpEntity(); 
