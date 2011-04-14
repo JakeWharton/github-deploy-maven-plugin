@@ -331,18 +331,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 		if (this.existingDownloads.containsKey(this.file.getName())) {
 			if (this.replaceExisting) {
 				GitHubDownload existing = this.existingDownloads.get(this.file.getName());
-				
-				//Setup download delete request
-				this.getLog().info(INFO_DELETE_EXISTING);
-				this.getLog().debug("DOWNLOAD DELETE URL: " + existing.getDeleteUrl());					
-				HttpPost dlDelete = new HttpPost(existing.getDeleteUrl());
-				BasicHttpEntity dlDeleteEntity = new BasicHttpEntity();
-				String dlDeleteBody = String.format(ENTITY_DELETE_DOWNLOAD, this.githubLogin, this.githubToken, this.authToken);
-				dlDeleteEntity.setContent(IOUtils.toInputStream(dlDeleteBody));
-				dlDelete.setEntity(dlDeleteEntity);
-				
-				//Perform request
-				this.checkedExecute(dlDelete, HttpStatus.SC_MOVED_TEMPORARILY, ERROR_DOWNLOAD_DELETE);
+				this.deleteExistingDownload(existing);
 			} else {
 				this.error(ERROR_DOWNLOAD_EXISTS);
 			}
@@ -505,5 +494,19 @@ public class GitHubDeployMojo extends AbstractMojo {
 		} else {
 			this.error(ERROR_AUTH_TOKEN);
 		}
+	}
+	
+	private void deleteExistingDownload(GitHubDownload download) throws MojoFailureException {
+		//Setup download delete request
+		this.getLog().info(INFO_DELETE_EXISTING);
+		this.getLog().debug("DOWNLOAD DELETE URL: " + download.getDeleteUrl());					
+		HttpPost dlDelete = new HttpPost(download.getDeleteUrl());
+		BasicHttpEntity dlDeleteEntity = new BasicHttpEntity();
+		String dlDeleteBody = String.format(ENTITY_DELETE_DOWNLOAD, this.githubLogin, this.githubToken, this.authToken);
+		dlDeleteEntity.setContent(IOUtils.toInputStream(dlDeleteBody));
+		dlDelete.setEntity(dlDeleteEntity);
+		
+		//Perform request
+		this.checkedExecute(dlDelete, HttpStatus.SC_MOVED_TEMPORARILY, ERROR_DOWNLOAD_DELETE);
 	}
 }
