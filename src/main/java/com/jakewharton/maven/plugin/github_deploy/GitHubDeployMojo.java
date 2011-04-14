@@ -288,23 +288,8 @@ public class GitHubDeployMojo extends AbstractMojo {
 	
 	@Override
 	public void execute() throws MojoFailureException {
-		//Do not run if we have been told to skip
-		if (this.skip) {
-			this.getLog().info(INFO_SKIP);
-			return;
-		}
-		
-		//Check we are not working offline
-		if (this.settings.isOffline()) {
-			this.error(ERROR_OFFLINE);
-		}
-		
-		//Get the packaged artifact
-        if (!this.file.exists()) {
-        	this.error(ERROR_NOT_FOUND, this.file.getName());
-        }
-		this.getLog().debug("PATH: " + this.file.getAbsolutePath());
-		this.getLog().debug("NAME: " + this.file.getName());
+		//Perform initialization
+		this.initialize();
 
 		if (StringUtils.isBlank(this.repoOwner) || StringUtils.isBlank(this.repoName)) {
 			//Get the target repository
@@ -453,5 +438,25 @@ public class GitHubDeployMojo extends AbstractMojo {
 		this.checkedExecute(upload, HttpStatus.SC_CREATED, ERROR_DEPLOYING);
 		
 		this.getLog().debug(DEBUG_DONE);
+	}
+	
+	private void initialize() throws MojoFailureException {
+		//Do not run if we have been told to skip
+		if (this.skip) {
+			this.getLog().info(INFO_SKIP);
+			return;
+		}
+		
+		//Check we are not working offline
+		if (this.settings.isOffline()) {
+			this.error(ERROR_OFFLINE);
+		}
+		
+		//Get the packaged artifact
+        if (!this.file.exists()) {
+        	this.error(ERROR_NOT_FOUND, this.file.getName());
+        }
+		this.getLog().debug("PATH: " + this.file.getAbsolutePath());
+		this.getLog().debug("NAME: " + this.file.getName());
 	}
 }
