@@ -3,6 +3,7 @@ package com.jakewharton.maven.plugin.github_deploy;
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.util.ResourceBundle;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.commons.io.IOUtils;
@@ -34,51 +35,100 @@ import org.json.JSONObject;
  * @author Jake Wharton <jakewharton@gmail.com>
  */
 public class GitHubDeployMojo extends AbstractMojo {
+	/** String resources for messages. */
+	static final ResourceBundle STRINGS = ResourceBundle.getBundle(GitHubDeployMojo.class.getPackage().getName() + ".Strings");
+	/** Skipped execution message. */
+	static final String INFO_SKIP = STRINGS.getString("INFO_SKIP");
+	/** Checking downloads message. */
+	static final String INFO_CHECK_DOWNLOADS = STRINGS.getString("INFO_CHECK_DOWNLOADS");
+	/** Sending deploy information message. */
+	static final String INFO_DEPLOY_INFO = STRINGS.getString("INFO_DEPLOY_INFO");
+	/** Deploying message. */
+	static final String INFO_DEPLOY = STRINGS.getString("INFO_DEPLOY");
+	/** Deleting existing download message. */
+	static final String INFO_DELETE_EXISTING = STRINGS.getString("INFO_DELETE_EXISTING");
+	/** Artifact not found error message. */
+	static final String ERROR_NOT_FOUND = STRINGS.getString("ERROR_NOT_FOUND");
+	/** Maven offline error message. */
+	static final String ERROR_OFFLINE = STRINGS.getString("ERROR_OFFLINE");
+	/** Invalid SCM URL error message. */
+	static final String ERROR_SCM_INVALID = STRINGS.getString("ERROR_SCM_INVALID");
+	/** Download exists error message. */
+	static final String ERROR_DOWNLOAD_EXISTS = STRINGS.getString("ERROR_DOWNLOAD_EXISTS");
+	/** JSON parsing error message. */
+	static final String ERROR_JSON_PARSE = STRINGS.getString("ERROR_JSON_PARSE");
+	/** JSON property retreival error message. */
+	static final String ERROR_JSON_PROPERTIES = STRINGS.getString("ERROR_JSON_PROPERTIES");
+	/** Deployment error message. */
+	static final String ERROR_DEPLOYING = STRINGS.getString("ERROR_DEPLOYING");
+	/** Property encoding error message. */
+	static final String ERROR_ENCODING = STRINGS.getString("ERROR_ENCODING");
+	/** Check downloads error message. */
+	static final String ERROR_CHECK_DOWNLOADS = STRINGS.getString("ERROR_CHECK_DOWNLOADS");
+	/** Delete existing download error message. */
+	static final String ERROR_DOWNLOAD_DELETE = STRINGS.getString("ERROR_DOWNLOAD_DELETE");
+	/** Send deploy info error message. */
+	static final String ERROR_DEPLOY_INFO = STRINGS.getString("ERROR_DEPLOY_INFO");
+	/** GitHub credentials error message. */
+	static final String ERROR_NO_CREDENTIALS = STRINGS.getString("ERROR_NO_CREDENTIALS");
+	/** Existing download check debugging message. */
+	static final String DEBUG_CHECK_DOWNLOAD = STRINGS.getString("DEBUG_CHECK_DOWNLOAD");
+	/** No settings.xml GitHub credentials debugging message. */
+	static final String DEBUG_NO_SETTINGS_CREDENTIALS = STRINGS.getString("DEBUG_NO_SETTINGS_CREDENTIALS");
+	/** Execution done debugging message. */
+	static final String DEBUG_DONE = STRINGS.getString("DEBUG_DONE");
+	
+	/** Git command to get GitHub user login. */
 	private static final String[] GIT_GITHUB_USER = new String[] { "git", "config", "--global", "github.user" };
+	/** Git command to get GitHub user token. */
 	private static final String[] GIT_GITHUB_TOKEN = new String[] { "git", "config", "--global", "github.token" };
+	/** Regular expression to validate the pom.xml's SCM value. */
 	private static final Pattern REGEX_REPO = Pattern.compile("^scm:git:git@github.com:(.+?)\\.git$");
+	/** Regular expression to locate existing download entries. */
 	private static final String REGEX_DOWNLOADS = "<a href=\"/%1$s/downloads/([0-9]+)\"(?:.*?)'value', '([0-9a-f]+)'(?:.*?)<a href=\"/downloads/%1$s/(.*?)\">";
+	/** URL target for GitHub repo downloads. */
 	private static final String URL_DOWNLOADS = "https://github.com/%s/downloads";
+	/** URL target for GitHu repo downloads (including authentication). */
 	private static final String URL_DOWNLOADS_WITH_AUTH = URL_DOWNLOADS + "?login=%s&token=%s";
+	/** URL target for deleting existing download. */
 	private static final String URL_DOWNLOAD_DELETE = URL_DOWNLOADS + "/%s";
+	/** URL target for artifact deployment. */
 	private static final String URL_DEPLOY = "https://github.s3.amazonaws.com/";
+	/** HTTP entity for sending deploy info. */
 	private static final String ENTITY_DEPLOY_INFO = "login=%s&token=%s&file_length=%s&content_type=%s&file_name=%s&description=";
+	/** HTTP entity for deleting existing download. */
 	private static final String ENTITY_DELETE_DOWNLOAD = "login=%s&token=%s&_method=delete&authenticity_token=";
-	private static final String SETTINGS_PROFILE_NAME = "github-deploy";
+	/** Settings server ID. */
+	private static final String SETTINGS_SERVER_ID = "github-deploy";
+	/** Artifact MIME type. */
 	private static final String MIME_TYPE = "application/octet-stream";
-	private static final String DEBUG_CHECK_DOWNLOAD = "Checking existing download \"%s\".";
-	private static final String DEBUG_NO_SETTINGS_CREDENTIALS = "No GitHub credentials in settings. Attempting to access from git config.";
-	private static final String DEBUG_DONE = "Done!";
-	private static final String INFO_SKIP = "Skipping artifact deployment.";
-	private static final String INFO_CHECK_DOWNLOADS = "Checking existing downloads.";
-	private static final String INFO_ARTIFACT_INFO = "Sending artifact information and obtaining S3 upload credentials.";
-	private static final String INFO_DEPLOY = "Deploying \"%s\" to remote server.";
-	private static final String INFO_DELETE_EXISTING = "Deleting existing download.";
-	private static final String ERROR_FILE_NOT_FOUND = "File \"%s\" not found.";
-	private static final String ERROR_OFFLINE = "Cannot deploy artifacts when Maven is in offline mode";
-	private static final String ERROR_SCM_INVALID = "SCM developer connection is not a valid GitHub repository URL.";
-	private static final String ERROR_DOWNLOAD_EXISTS = "Downloads already exists.";
-	private static final String ERROR_JSON_PARSE = "Unable to parse JSON.";
-	private static final String ERROR_JSON_PROPERTIES = "Unable to retrieve needed JSON properties.";
-	private static final String ERROR_DEPLOYING = "Error deploying artifact to remote server.";
-	private static final String ERROR_ENCODING = "Error encoding properties for file upload.";
-	private static final String ERROR_DOWNLOADS = "Error checking existing downloads.";
-	private static final String ERROR_DOWNLOAD_DELETE = "Error deleting existing download.";
-	private static final String ERROR_DEPLOY_INFO = "Error fetching deploy information.";
-	private static final String ERROR_NO_CREDENTIALS = "Error reading GitHub credentials from settings or git.";
+	/** HTTP POST property name for artifact key. */
 	private static final String HTTP_PROPERTY_KEY = "key";
+	/** HTTP POST property name for ACL. */
 	private static final String HTTP_PROPERTY_ACL = "acl";
+	/** HTTP POST property name for artifact file name. */
 	private static final String HTTP_PROPERTY_FILENAME = "Filename";
+	/** HTTP POST property name for policy. */
 	private static final String HTTP_PROPERTY_POLICY = "policy";
+	/** HTTP POST property name for AWS access ID. */
 	private static final String HTTP_PROPERTY_AWS_ACCESS_ID = "AWSAccessKeyId";
+	/** HTTP POST property name for signature. */
 	private static final String HTTP_PROPERTY_SIGNATURE = "signature";
+	/** HTTP POST property name for successful status code. */
 	private static final String HTTP_PROPERTY_SUCCESS_ACTION_STATUS = "success_action_status";
+	/** HTTP POST property name for artifact MIME type. */
 	private static final String HTTP_PROPERTY_CONTENT_TYPE = "Content-Type";
+	/** HTTP POST property name for artifact data. */
 	private static final String HTTP_PROPERTY_FILE = "file";
+	/** JSON property name of prefix value. */
 	private static final String JSON_PROPERTY_PREFIX = "prefix";
+	/** JSON property name of policy value. */
 	private static final String JSON_PROPERTY_POLICY = "policy";
+	/** JSON property name of ACL value. */
 	private static final String JSON_PROPERTY_ACL = "acl";
+	/** JSON property name of access key ID value. */
 	private static final String JSON_PROPERTY_ACCESS_KEY_ID = "accesskeyid";
+	/** JSON property name of signature value. */
 	private static final String JSON_PROPERTY_SIGNATURE = "signature";
 	
 	
@@ -230,7 +280,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 		
 		//Get the packaged artifact
         if (!this.file.exists()) {
-        	this.error(ERROR_FILE_NOT_FOUND, this.file.getName());
+        	this.error(ERROR_NOT_FOUND, this.file.getName());
         }
 		this.getLog().debug("PATH: " + this.file.getAbsolutePath());
 		this.getLog().debug("NAME: " + this.file.getName());
@@ -247,8 +297,8 @@ public class GitHubDeployMojo extends AbstractMojo {
 		this.getLog().debug("REPO: " + repo);
 
 		//Attempt to get GitHub credentials from settings and git if not already specified
-		if (StringUtils.isNotBlank(this.githubLogin) && StringUtils.isNotBlank(this.githubToken)) {
-			Server githubDeploy = this.settings.getServer(SETTINGS_PROFILE_NAME);
+		if (StringUtils.isBlank(this.githubLogin) && StringUtils.isBlank(this.githubToken)) {
+			Server githubDeploy = this.settings.getServer(SETTINGS_SERVER_ID);
 			if (githubDeploy != null) {
 				this.githubLogin = githubDeploy.getUsername();
 				this.githubToken = githubDeploy.getPassphrase();
@@ -277,7 +327,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 		String dlCheckUrl = String.format(URL_DOWNLOADS_WITH_AUTH, repo, this.githubLogin, this.githubToken);
 		this.getLog().debug("CHECK DOWNLOADS URLL " + dlCheckUrl);
 		HttpGet dlCheck = new HttpGet(dlCheckUrl);
-		String dlCheckContent = this.checkedExecute(dlCheck, HttpStatus.SC_OK, ERROR_DOWNLOADS);
+		String dlCheckContent = this.checkedExecute(dlCheck, HttpStatus.SC_OK, ERROR_CHECK_DOWNLOADS);
 
 		//Check for existing download for current artifact
 		Pattern downloadsRegex = Pattern.compile(String.format(REGEX_DOWNLOADS, repo), Pattern.DOTALL);
@@ -316,7 +366,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 		
 		
 		//Perform upload info request
-		this.getLog().info(INFO_ARTIFACT_INFO);
+		this.getLog().info(INFO_DEPLOY_INFO);
 		String deployInfoUrl = String.format(URL_DOWNLOADS, repo);
 		this.getLog().debug("DEPLOY INFO URL: " + deployInfoUrl);
 		HttpPost deployInfo = new HttpPost(deployInfoUrl);

@@ -12,6 +12,19 @@
 	<description>Deploy a project's packaged artifacts to its corresponding GitHub project.</description>
 	<url>http://jakewharton.com</url>
 	<inceptionYear>2011</inceptionYear>
+
+	<properties>
+		<java.version>1.6</java.version>
+		<maven.plugin.version>2.2.1</maven.plugin.version>
+		<json.version>20090211</json.version>
+		<apache.http.version>4.1.1</apache.http.version>
+		<apache.commons.version>2.0.1</apache.commons.version>
+		
+		<junit.version>4.8.2</junit.version>
+
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+	</properties>
 	
 	<developers>
 		<developer>
@@ -68,17 +81,6 @@
 		<url>http://github.com/JakeWharton/github-deploy-maven-plugin/issues</url>
 	</issueManagement>
 
-	<properties>
-		<java.version>1.6</java.version>
-		<maven.plugin.version>2.2.1</maven.plugin.version>
-		<json.version>20090211</json.version>
-		<apache.http.version>4.1.1</apache.http.version>
-		<apache.commons.version>2.0.1</apache.commons.version>
-
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-	</properties>
-
 	<dependencies>
 		<dependency>
 			<groupId>org.apache.maven</groupId>
@@ -112,6 +114,13 @@
 			<groupId>org.apache.httpcomponents</groupId>
 			<artifactId>httpmime</artifactId>
 			<version>${apache.http.version}</version>
+		</dependency>
+		
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>${junit.version}</version>
+			<scope>test</scope>
 		</dependency>
 	</dependencies>
 
