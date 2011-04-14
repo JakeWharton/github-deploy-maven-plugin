@@ -345,6 +345,11 @@ public class GitHubDeployMojo extends AbstractMojo {
 		this.getLog().debug(DEBUG_DONE);
 	}
 	
+	/**
+	 * Perform plugin initialization.
+	 * 
+	 * @throws MojoFailureException
+	 */
 	private void initialize() throws MojoFailureException {
 		//Check we are not working offline
 		if (this.settings.isOffline()) {
@@ -359,6 +364,13 @@ public class GitHubDeployMojo extends AbstractMojo {
 		this.getLog().debug("NAME: " + this.file.getName());
 	}
 	
+	/**
+	 * Load the target repository information. This can be specified directly in
+	 * the plugin configuration or can be inferred from the SCM developer
+	 * connection URL.
+	 * 
+	 * @throws MojoFailureException
+	 */
 	private void loadRepositoryInformation() throws MojoFailureException {
 		if (StringUtils.isBlank(this.repoOwner) || StringUtils.isBlank(this.repoName)) {
 			//Get the target repository
@@ -378,6 +390,14 @@ public class GitHubDeployMojo extends AbstractMojo {
 		this.getLog().debug("REPO: " + this.repo);
 	}
 	
+	/**
+	 * Load the GitHub user login and token. These can be specified directly in
+	 * the plugin configuration, in a <code>&lt;server&gt;</code> section of the
+	 * user's <code>settings.xml</code> file, or in the global or local git
+	 * configuration.
+	 * 
+	 * @throws MojoFailureException
+	 */
 	private void loadRepositoryCredentials() throws MojoFailureException {
 		if (StringUtils.isBlank(this.githubLogin) || StringUtils.isBlank(this.githubToken)) {
 			//Attempt to get GitHub credentials from settings and git if not already specified
@@ -402,6 +422,11 @@ public class GitHubDeployMojo extends AbstractMojo {
 		this.getLog().debug("TOKEN: " + this.githubToken);
 	}
 	
+	/**
+	 * Parse a list of existing downloads from the page contents.
+	 * 
+	 * @param content Page contents.
+	 */
 	private void parseExistingDownloads(String content) {
 		this.existingDownloads = new HashMap<String, GitHubDownload>();
 		
@@ -421,6 +446,12 @@ public class GitHubDeployMojo extends AbstractMojo {
 		}
 	}
 	
+	/**
+	 * Parse the GitHub authentication token from the page contents.
+	 * 
+	 * @param content Page contents.
+	 * @throws MojoFailureException
+	 */
 	private void parseGitHubAuthenticationToken(String content) throws MojoFailureException {
 		Matcher authTokenMatcher = REGEX_AUTH_TOKEN.matcher(content);
 		if (authTokenMatcher.find()) {
@@ -431,6 +462,12 @@ public class GitHubDeployMojo extends AbstractMojo {
 		}
 	}
 	
+	/**
+	 * Delete an existing download from GitHub.
+	 * 
+	 * @param download Download to delete.
+	 * @throws MojoFailureException
+	 */
 	private void deleteExistingDownload(GitHubDownload download) throws MojoFailureException {
 		//Setup download delete request
 		this.getLog().info(INFO_DELETE_EXISTING);
@@ -445,6 +482,13 @@ public class GitHubDeployMojo extends AbstractMojo {
 		this.checkedExecute(dlDelete, HttpStatus.SC_MOVED_TEMPORARILY, ERROR_DOWNLOAD_DELETE);
 	}
 	
+	/**
+	 * Deploy an artifact to the GitHub downloads. This method assumes that a
+	 * download with the same name does not already exist.
+	 * 
+	 * @param artifact Artifact for deployment.
+	 * @throws MojoFailureException
+	 */
 	private void deploy(File artifact) throws MojoFailureException {
 		//Perform upload info request
 		this.getLog().info(INFO_DEPLOY_INFO);
