@@ -3,6 +3,8 @@ package com.jakewharton.maven.plugin.github_deploy;
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -71,6 +73,8 @@ public class GitHubDeployMojo extends AbstractMojo {
 	static final String ERROR_DEPLOY_INFO = STRINGS.getString("ERROR_DEPLOY_INFO");
 	/** GitHub credentials error message. */
 	static final String ERROR_NO_CREDENTIALS = STRINGS.getString("ERROR_NO_CREDENTIALS");
+	/** GitHub authentication token error message. */
+	static final String ERROR_AUTH_TOKEN = STRINGS.getString("ERROR_AUTH_TOKEN");
 	/** Existing download check debugging message. */
 	static final String DEBUG_CHECK_DOWNLOAD = STRINGS.getString("DEBUG_CHECK_DOWNLOAD");
 	/** No settings.xml GitHub credentials debugging message. */
@@ -84,16 +88,18 @@ public class GitHubDeployMojo extends AbstractMojo {
 	private static final String[] GIT_GITHUB_TOKEN = new String[] { "git", "config", "--global", "github.token" };
 	/** Regular expression to validate the pom.xml's SCM value. */
 	private static final Pattern REGEX_REPO = Pattern.compile("^scm:git:git@github.com:(.+?)/(.+?)\\.git$");
+	/** Regular expression to get the downloads authentication token. */
+	private static final Pattern REGEX_AUTH_TOKEN = Pattern.compile("<script>window._auth_token = \"([0-9a-f]+)\"</script>");
 	/** Regular expression to locate existing download entries. */
-	private static final String REGEX_DOWNLOADS = "<a href=\"/%1$s/downloads/([0-9]+)\"(?:.*?)'value', '([0-9a-f]+)'(?:.*?)<a href=\"/downloads/%1$s/(.*?)\">";
+	private static final String REGEX_DOWNLOADS = "<a href=\"(/%1$s/downloads/([0-9]+))\"(?:.*?)<a href=\"(/downloads/%1$s/(.*?))\">(.*?)</a>";
 	/** Repository seperator between owner and name. */
 	private static final String REPO_SEPERATOR = "/";
+	/** GitHub base URL. */
+	private static final String URL_BASE = "https://github.com";
 	/** URL target for GitHub repo downloads. */
-	private static final String URL_DOWNLOADS = "https://github.com/%s/downloads";
+	private static final String URL_DOWNLOADS = URL_BASE + "/%s/downloads";
 	/** URL target for GitHu repo downloads (including authentication). */
 	private static final String URL_DOWNLOADS_WITH_AUTH = URL_DOWNLOADS + "?login=%s&token=%s";
-	/** URL target for deleting existing download. */
-	private static final String URL_DOWNLOAD_DELETE = URL_DOWNLOADS + "/%s";
 	/** URL target for artifact deployment. */
 	private static final String URL_DEPLOY = "https://github.s3.amazonaws.com/";
 	/** HTTP entity for sending deploy info. */
@@ -208,6 +214,16 @@ public class GitHubDeployMojo extends AbstractMojo {
 	private Settings settings;
 	
 	/**
+	 * List of existing downloads for the GitHub repo.
+	 */
+	private Map<String, GitHubDownload> existingDownloads;
+	
+	/**
+	 * GitHub authentication token.
+	 */
+	private String authToken;
+	
+	/**
 	 * Common HTTP client.
 	 */
 	private final HttpClient httpClient = new DefaultHttpClient();
@@ -302,39 +318,33 @@ public class GitHubDeployMojo extends AbstractMojo {
 		//Perform existing downloads request
 		this.getLog().info(INFO_CHECK_DOWNLOADS);
 		String dlCheckUrl = String.format(URL_DOWNLOADS_WITH_AUTH, this.repo, this.githubLogin, this.githubToken);
-		this.getLog().debug("CHECK DOWNLOADS URLL " + dlCheckUrl);
+		this.getLog().debug("CHECK DOWNLOADS URL " + dlCheckUrl);
 		HttpGet dlCheck = new HttpGet(dlCheckUrl);
 		String dlCheckContent = this.checkedExecute(dlCheck, HttpStatus.SC_OK, ERROR_CHECK_DOWNLOADS);
+		
+		//Get GitHub auth token
+		this.parseGitHubAuthenticationToken(dlCheckContent);
+		//Get all existing downloads
+		this.parseExistingDownloads(dlCheckContent);
 
 		//Check for existing download for current artifact
-		Pattern downloadsRegex = Pattern.compile(String.format(REGEX_DOWNLOADS, this.repo), Pattern.DOTALL);
-		Matcher downloads = downloadsRegex.matcher(dlCheckContent);
-		while (downloads.find()) {
-			this.getLog().debug(String.format(DEBUG_CHECK_DOWNLOAD, downloads.group(1)));
-			if (this.file.getName().equals(downloads.group(3))) {
-				if (this.replaceExisting) {
-					//Get download's id and authentication token
-					int downloadId = Integer.parseInt(downloads.group(1));
-					String authToken = downloads.group(2);
-					this.getLog().debug("DOWNLOAD ID: " + downloadId);
-					this.getLog().debug("AUTH TOKEN: " + authToken);
-					
-					//Setup download delete request
-					this.getLog().info(INFO_DELETE_EXISTING);
-					String dlDeleteUrl = String.format(URL_DOWNLOAD_DELETE, this.repo, downloadId);
-					this.getLog().debug("DOWNLOAD DELETE URL: " + dlDeleteUrl);					
-					HttpPost dlDelete = new HttpPost(dlDeleteUrl);
-					BasicHttpEntity dlDeleteEntity = new BasicHttpEntity();
-					String dlDeleteBody = String.format(ENTITY_DELETE_DOWNLOAD, this.githubLogin, this.githubToken, authToken);
-					dlDeleteEntity.setContent(IOUtils.toInputStream(dlDeleteBody));
-					dlDelete.setEntity(dlDeleteEntity);
-					
-					//Perform request
-					this.checkedExecute(dlDelete, HttpStatus.SC_MOVED_TEMPORARILY, ERROR_DOWNLOAD_DELETE);
-					break;
-				} else {
-					this.error(ERROR_DOWNLOAD_EXISTS);
-				}
+		if (this.existingDownloads.containsKey(this.file.getName())) {
+			if (this.replaceExisting) {
+				GitHubDownload existing = this.existingDownloads.get(this.file.getName());
+				
+				//Setup download delete request
+				this.getLog().info(INFO_DELETE_EXISTING);
+				this.getLog().debug("DOWNLOAD DELETE URL: " + existing.getDeleteUrl());					
+				HttpPost dlDelete = new HttpPost(existing.getDeleteUrl());
+				BasicHttpEntity dlDeleteEntity = new BasicHttpEntity();
+				String dlDeleteBody = String.format(ENTITY_DELETE_DOWNLOAD, this.githubLogin, this.githubToken, this.authToken);
+				dlDeleteEntity.setContent(IOUtils.toInputStream(dlDeleteBody));
+				dlDelete.setEntity(dlDeleteEntity);
+				
+				//Perform request
+				this.checkedExecute(dlDelete, HttpStatus.SC_MOVED_TEMPORARILY, ERROR_DOWNLOAD_DELETE);
+			} else {
+				this.error(ERROR_DOWNLOAD_EXISTS);
 			}
 		}
 
@@ -466,5 +476,34 @@ public class GitHubDeployMojo extends AbstractMojo {
 		this.githubToken = this.githubToken.trim();
 		this.getLog().debug("LOGIN: " + this.githubLogin);
 		this.getLog().debug("TOKEN: " + this.githubToken);
+	}
+	
+	private void parseExistingDownloads(String content) {
+		this.existingDownloads = new HashMap<String, GitHubDownload>();
+		
+		String regex = String.format(REGEX_DOWNLOADS, this.repo);
+		Pattern pattern = Pattern.compile(regex, Pattern.DOTALL);
+		Matcher matcher = pattern.matcher(content);
+		while (matcher.find()) {
+			GitHubDownload download = new GitHubDownload();
+			
+			download.setDeleteUrl(URL_BASE + matcher.group(1));
+			download.setId(Long.parseLong(matcher.group(2)));
+			download.setUrl(URL_BASE + matcher.group(3));
+			download.setFileName(matcher.group(4));
+			download.setName(matcher.group(5));
+			
+			this.existingDownloads.put(download.getFileName(), download);
+		}
+	}
+	
+	private void parseGitHubAuthenticationToken(String content) throws MojoFailureException {
+		Matcher authTokenMatcher = REGEX_AUTH_TOKEN.matcher(content);
+		if (authTokenMatcher.find()) {
+			this.authToken = authTokenMatcher.group();
+			this.getLog().debug("AUTH TOKEN: " + this.authToken);
+		} else {
+			this.error(ERROR_AUTH_TOKEN);
+		}
 	}
 }
