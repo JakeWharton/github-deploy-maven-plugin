@@ -291,49 +291,14 @@ public class GitHubDeployMojo extends AbstractMojo {
 		//Perform initialization
 		this.initialize();
 
-		if (StringUtils.isBlank(this.repoOwner) || StringUtils.isBlank(this.repoName)) {
-			//Get the target repository
-			Matcher match = REGEX_REPO.matcher(this.scmUrl);
-			if (!match.matches()) {
-				this.error(ERROR_SCM_INVALID);
-			}
-			this.getLog().debug("SCM URL: " + this.scmUrl);
-			
-			//Get the repo owner and name from the match
-			this.repoOwner = match.group(1);
-			this.repoName = match.group(2);
-		}
-		this.repo = this.repoOwner + REPO_SEPERATOR + this.repoName;
-		this.getLog().debug("REPO OWNER: " + this.repoOwner);
-		this.getLog().debug("REPO NAME: " + this.repoName);
-		this.getLog().debug("REPO: " + this.repo);
+		//Load repository data
+		this.loadRepositoryInformation();
+		this.loadRepositoryCredentials();
 
-		if (StringUtils.isBlank(this.githubLogin) || StringUtils.isBlank(this.githubToken)) {
-			//Attempt to get GitHub credentials from settings and git if not already specified
-			Server githubDeploy = this.settings.getServer(SETTINGS_SERVER_ID);
-			if (githubDeploy != null) {
-				this.githubLogin = githubDeploy.getUsername();
-				this.githubToken = githubDeploy.getPassphrase();
-			} else {
-				try {
-					this.getLog().debug(DEBUG_NO_SETTINGS_CREDENTIALS);
-					this.githubLogin = IOUtils.toString(Runtime.getRuntime().exec(GIT_GITHUB_USER).getInputStream());
-					this.githubToken = IOUtils.toString(Runtime.getRuntime().exec(GIT_GITHUB_TOKEN).getInputStream());
-				} catch (IOException e) {}
-			}
-			if (StringUtils.isBlank(this.githubLogin) || StringUtils.isBlank(this.githubToken)) {
-				this.error(ERROR_NO_CREDENTIALS);
-			}
-		}
-		this.githubLogin = this.githubLogin.trim();
-		this.githubToken = this.githubToken.trim();
-		this.getLog().debug("LOGIN: " + this.githubLogin);
-		this.getLog().debug("TOKEN: " + this.githubToken);
 
-		
 		/** CHECK EXISTING DOWNLOADS **/
-		
-		
+
+
 		//Perform existing downloads request
 		this.getLog().info(INFO_CHECK_DOWNLOADS);
 		String dlCheckUrl = String.format(URL_DOWNLOADS_WITH_AUTH, this.repo, this.githubLogin, this.githubToken);
@@ -458,5 +423,48 @@ public class GitHubDeployMojo extends AbstractMojo {
         }
 		this.getLog().debug("PATH: " + this.file.getAbsolutePath());
 		this.getLog().debug("NAME: " + this.file.getName());
+	}
+	
+	private void loadRepositoryInformation() throws MojoFailureException {
+		if (StringUtils.isBlank(this.repoOwner) || StringUtils.isBlank(this.repoName)) {
+			//Get the target repository
+			Matcher match = REGEX_REPO.matcher(this.scmUrl);
+			if (!match.matches()) {
+				this.error(ERROR_SCM_INVALID);
+			}
+			this.getLog().debug("SCM URL: " + this.scmUrl);
+			
+			//Get the repo owner and name from the match
+			this.repoOwner = match.group(1);
+			this.repoName = match.group(2);
+		}
+		this.repo = this.repoOwner + REPO_SEPERATOR + this.repoName;
+		this.getLog().debug("REPO OWNER: " + this.repoOwner);
+		this.getLog().debug("REPO NAME: " + this.repoName);
+		this.getLog().debug("REPO: " + this.repo);
+	}
+	
+	private void loadRepositoryCredentials() throws MojoFailureException {
+		if (StringUtils.isBlank(this.githubLogin) || StringUtils.isBlank(this.githubToken)) {
+			//Attempt to get GitHub credentials from settings and git if not already specified
+			Server githubDeploy = this.settings.getServer(SETTINGS_SERVER_ID);
+			if (githubDeploy != null) {
+				this.githubLogin = githubDeploy.getUsername();
+				this.githubToken = githubDeploy.getPassphrase();
+			} else {
+				try {
+					this.getLog().debug(DEBUG_NO_SETTINGS_CREDENTIALS);
+					this.githubLogin = IOUtils.toString(Runtime.getRuntime().exec(GIT_GITHUB_USER).getInputStream());
+					this.githubToken = IOUtils.toString(Runtime.getRuntime().exec(GIT_GITHUB_TOKEN).getInputStream());
+				} catch (IOException e) {}
+			}
+			if (StringUtils.isBlank(this.githubLogin) || StringUtils.isBlank(this.githubToken)) {
+				this.error(ERROR_NO_CREDENTIALS);
+			}
+		}
+		this.githubLogin = this.githubLogin.trim();
+		this.githubToken = this.githubToken.trim();
+		this.getLog().debug("LOGIN: " + this.githubLogin);
+		this.getLog().debug("TOKEN: " + this.githubToken);
 	}
 }
