@@ -320,16 +320,12 @@ public class GitHubDeployMojo extends AbstractMojo {
 		this.loadRepositoryCredentials();
 
 		//Perform existing downloads request
-		this.getLog().info(INFO_CHECK_DOWNLOADS);
-		String dlCheckUrl = String.format(URL_DOWNLOADS_WITH_AUTH, this.repo, this.githubLogin, this.githubToken);
-		this.getLog().debug("CHECK DOWNLOADS URL " + dlCheckUrl);
-		HttpGet dlCheck = new HttpGet(dlCheckUrl);
-		String dlCheckContent = this.checkedExecute(dlCheck, HttpStatus.SC_OK, ERROR_CHECK_DOWNLOADS);
+		String downloadsContent = this.loadExistingDownloadsContent();
 		
 		//Get GitHub auth token
-		this.parseGitHubAuthenticationToken(dlCheckContent);
+		this.parseGitHubAuthenticationToken(downloadsContent);
 		//Get all existing downloads
-		this.parseExistingDownloads(dlCheckContent);
+		this.parseExistingDownloads(downloadsContent);
 
 		//Check for existing download for current artifact
 		if (this.existingDownloads.containsKey(this.file.getName())) {
@@ -341,6 +337,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 			}
 		}
 
+		//Deploy the artifact
 		this.deploy(this.file);
 		this.getLog().debug(DEBUG_DONE);
 	}
@@ -483,14 +480,27 @@ public class GitHubDeployMojo extends AbstractMojo {
 	}
 	
 	/**
-	 * Deploy an artifact to the GitHub downloads. This method assumes that a
-	 * download with the same name does not already exist.
+	 * Load the existing downloads page content for the GitHub repo.
 	 * 
-	 * @param artifact Artifact for deployment.
+	 * @return Page content.
 	 * @throws MojoFailureException
 	 */
-	private void deploy(File artifact) throws MojoFailureException {
-		//Perform upload info request
+	private String loadExistingDownloadsContent() throws MojoFailureException {
+		this.getLog().info(INFO_CHECK_DOWNLOADS);
+		String dlCheckUrl = String.format(URL_DOWNLOADS_WITH_AUTH, this.repo, this.githubLogin, this.githubToken);
+		this.getLog().debug("CHECK DOWNLOADS URL " + dlCheckUrl);
+		HttpGet dlCheck = new HttpGet(dlCheckUrl);
+		return this.checkedExecute(dlCheck, HttpStatus.SC_OK, ERROR_CHECK_DOWNLOADS);
+	}
+	
+	/**
+	 * Send the deploy info and load the returned S3 authentication details.
+	 * 
+	 * @param artifact Artifact we will be deploying.
+	 * @return S3 Authentication information
+	 * @throws MojoFailureException
+	 */
+	private JSONObject loadDeployInfoContent(File artifact) throws MojoFailureException {
 		this.getLog().info(INFO_DEPLOY_INFO);
 		String deployInfoUrl = String.format(URL_DOWNLOADS, this.repo);
 		this.getLog().debug("DEPLOY INFO URL: " + deployInfoUrl);
@@ -499,30 +509,42 @@ public class GitHubDeployMojo extends AbstractMojo {
 		String deployInfoBody = String.format(ENTITY_DEPLOY_INFO, this.githubLogin, this.githubToken, artifact.length(), MIME_TYPE, artifact.getName());
 		deployInfoEntity.setContent(IOUtils.toInputStream(deployInfoBody));
 		deployInfo.setEntity(deployInfoEntity);
-		String deployInfoContent = this.checkedExecute(deployInfo, HttpStatus.SC_OK, ERROR_DEPLOY_INFO);
-		
+		String content = this.checkedExecute(deployInfo, HttpStatus.SC_OK, ERROR_DEPLOY_INFO);
+
 		//Parse JSON response
-		JSONObject postData = null;
 		try {
-			postData = new JSONObject(deployInfoContent);
+			return new JSONObject(content);
 		} catch (JSONException e) {
 			this.error(e, ERROR_JSON_PARSE);
 		}
 		
+		return null; //never reached
+	}
+	
+	/**
+	 * Deploy an artifact to the GitHub downloads. This method assumes that a
+	 * download with the same name does not already exist.
+	 * 
+	 * @param artifact Artifact for deployment.
+	 * @throws MojoFailureException
+	 */
+	private void deploy(File artifact) throws MojoFailureException {
+		//Perform upload info request
+		JSONObject deployInfo = this.loadDeployInfoContent(artifact);
+		
 		//Extract needed information
-		String prefix = this.checkedJsonProperty(postData, JSON_PROPERTY_PREFIX);
+		String prefix = this.checkedJsonProperty(deployInfo, JSON_PROPERTY_PREFIX);
 		String key = prefix + artifact.getName();
-		String policy = this.checkedJsonProperty(postData, JSON_PROPERTY_POLICY);
-		String accessKeyId = this.checkedJsonProperty(postData, JSON_PROPERTY_ACCESS_KEY_ID);
-		String signature = this.checkedJsonProperty(postData, JSON_PROPERTY_SIGNATURE);
-		String acl = this.checkedJsonProperty(postData, JSON_PROPERTY_ACL);
+		String policy = this.checkedJsonProperty(deployInfo, JSON_PROPERTY_POLICY);
+		String accessKeyId = this.checkedJsonProperty(deployInfo, JSON_PROPERTY_ACCESS_KEY_ID);
+		String signature = this.checkedJsonProperty(deployInfo, JSON_PROPERTY_SIGNATURE);
+		String acl = this.checkedJsonProperty(deployInfo, JSON_PROPERTY_ACL);
 		this.getLog().debug("PREFIX: " + prefix);
 		this.getLog().debug("KEY: " + key);
 		this.getLog().debug("POLICY: " + policy);
 		this.getLog().debug("ACCESS KEY ID: " + accessKeyId);
 		this.getLog().debug("SIGNATURE: " + signature);
 		this.getLog().debug("ACL: " + acl);
-		
 		
 		//Set up deploy request
 		this.getLog().info(String.format(INFO_DEPLOY, artifact.getName()));
