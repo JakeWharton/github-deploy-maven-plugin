@@ -25,6 +25,7 @@ public class GitHubDeployMojoTest extends TestCase {
 		Assert.assertNotNull(GitHubDeployMojo.INFO_DELETE_EXISTING);
 		Assert.assertNotNull(GitHubDeployMojo.INFO_IGNORING_ARTIFACT);
 		Assert.assertNotNull(GitHubDeployMojo.INFO_SUCCESS);
+		Assert.assertNotNull(GitHubDeployMojo.INFO_ASSEMBLE_TARGETS);
 		Assert.assertNotNull(GitHubDeployMojo.ERROR_NOT_FOUND);
 		Assert.assertNotNull(GitHubDeployMojo.ERROR_OFFLINE);
 		Assert.assertNotNull(GitHubDeployMojo.ERROR_SCM_INVALID);

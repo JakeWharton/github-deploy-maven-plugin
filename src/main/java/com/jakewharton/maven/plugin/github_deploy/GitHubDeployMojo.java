@@ -56,6 +56,8 @@ public class GitHubDeployMojo extends AbstractMojo {
 	static final String INFO_IGNORING_ARTIFACT = STRINGS.getString("INFO_IGNORING_ARTIFACT");
 	/** Successful deployment message. */
 	static final String INFO_SUCCESS = STRINGS.getString("INFO_SUCCESS");
+	/** Assemble target artifacts message. */
+	static final String INFO_ASSEMBLE_TARGETS = STRINGS.getString("INFO_ASSEMBLE_TARGETS");
 	/** Artifact not found error message. */
 	static final String ERROR_NOT_FOUND = STRINGS.getString("ERROR_NOT_FOUND");
 	/** Maven offline error message. */
@@ -429,6 +431,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 	}
 	
 	List<Artifact> assembleDeployTargets() throws MojoFailureException {
+		this.getLog().info(INFO_ASSEMBLE_TARGETS);
 		this.getLog().debug("Assembling deploy targets...");
 		
 		Map<String, Artifact> artifacts = new HashMap<String, Artifact>();
