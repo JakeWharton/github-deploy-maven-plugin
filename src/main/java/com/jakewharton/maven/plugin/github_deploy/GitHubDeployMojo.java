@@ -3,6 +3,7 @@ package com.jakewharton.maven.plugin.github_deploy;
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -180,7 +181,6 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * @parameter default-value="false"
 	 */
 	private boolean skip;
-	
 
 	/**
 	 * Replace existing downloads.
@@ -208,7 +208,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * 
 	 * @parameter
 	 */
-	private List<String> ignoreTypes;
+	private Collection<String> ignoreTypes;
 	
     /**
      * Packaged artifact.
@@ -228,8 +228,14 @@ public class GitHubDeployMojo extends AbstractMojo {
      */
     private List<Artifact> attachedArtifacts;
 	
+    /**
+     * GitHub authentication token for deleting existing downloads.
+     */
     private String authToken;
     
+    /**
+     * List of existing downlods for the repository.
+     */
     private Map<String, GitHubDownload> existingDownloads;
     
 	/**
@@ -369,6 +375,11 @@ public class GitHubDeployMojo extends AbstractMojo {
 		this.getLog().debug("  $githubToken = " + this.githubToken);
 	}
 	
+	/**
+	 * Load the repository's existing downloads and authentication token.
+	 * 
+	 * @throws MojoFailureException
+	 */
 	void loadExistingDownloadsInformation() throws MojoFailureException {
 		this.getLog().info(INFO_EXISTING);
 		this.getLog().debug("Loading existing downloads information...");
@@ -435,6 +446,12 @@ public class GitHubDeployMojo extends AbstractMojo {
 		this.checkedExecute(request, HttpStatus.SC_MOVED_TEMPORARILY, ERROR_DOWNLOAD_DELETE, download.getFileName());
 	}
 	
+	/**
+	 * Assemble a list of valid artifacts for deployment.
+	 * 
+	 * @return Valid artifact list.
+	 * @throws MojoFailureException
+	 */
 	List<Artifact> assembleDeployTargets() throws MojoFailureException {
 		this.getLog().info(INFO_ARTIFACTS);
 		this.getLog().debug("Assembling deploy targets...");
@@ -451,6 +468,13 @@ public class GitHubDeployMojo extends AbstractMojo {
 		return new LinkedList<Artifact>(artifacts.values());
 	}
 	
+	/**
+	 * Check if an artifact is valid and deployable. If so, add it to the list.
+	 * 
+	 * @param artifacts Artifact list.
+	 * @param checkArtifact Artifact to check.
+	 * @throws MojoFailureException
+	 */
 	private void checkAddArtifact(Map<String, Artifact> artifacts, Artifact checkArtifact) throws MojoFailureException {
 		this.getLog().debug(String.format(". Check-adding artifact \"%s\"...", checkArtifact.getFile().getName()));
 		
@@ -471,7 +495,13 @@ public class GitHubDeployMojo extends AbstractMojo {
 			}
 		}
 	}
-	
+
+	/**
+	 * Delete existing download for any artifacs in a list if they exist.
+	 * 
+	 * @param artifacts Artifact list.
+	 * @throws MojoFailureException
+	 */
 	private void deleteAnyExisting(List<Artifact> artifacts) throws MojoFailureException {
 		this.getLog().debug("Deleting any existing downloads which match pending artifact deployments...");
 		
@@ -709,10 +739,10 @@ public class GitHubDeployMojo extends AbstractMojo {
 	void setHttpClient(HttpClient httpClient) {
 		this.httpClient = httpClient;
 	}
-	List<String> getIgnoreTypes() {
+	Collection<String> getIgnoreTypes() {
 		return ignoreTypes;
 	}
-	void setIgnoreTypes(List<String> ignoreTypes) {
+	void setIgnoreTypes(Collection<String> ignoreTypes) {
 		this.ignoreTypes = ignoreTypes;
 	}
 	List<Artifact> getAttachedArtifacts() {
