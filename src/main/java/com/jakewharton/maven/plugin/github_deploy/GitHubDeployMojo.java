@@ -649,98 +649,75 @@ public class GitHubDeployMojo extends AbstractMojo {
 		return null; //Never reached
 	}
 
-	
 	String getScmUrl() {
 		return this.scmUrl;
 	}
-
 	void setScmUrl(String scmUrl) {
 		this.scmUrl = scmUrl;
 	}
-
 	String getRepoOwner() {
 		return this.repoOwner;
 	}
-
 	void setRepoOwner(String repoOwner) {
 		this.repoOwner = repoOwner;
 	}
-
 	String getRepoName() {
 		return this.repoName;
 	}
-
 	void setRepoName(String repoName) {
 		this.repoName = repoName;
 	}
-
 	boolean isSkip() {
 		return this.skip;
 	}
-
 	void setSkip(boolean skip) {
 		this.skip = skip;
 	}
-
 	boolean isReplaceExisting() {
 		return this.replaceExisting;
 	}
-
 	void setReplaceExisting(boolean replaceExisting) {
 		this.replaceExisting = replaceExisting;
 	}
-
 	String getGithubLogin() {
 		return this.githubLogin;
 	}
-
 	void setGithubLogin(String githubLogin) {
 		this.githubLogin = githubLogin;
 	}
-
 	String getGithubToken() {
 		return this.githubToken;
 	}
-
 	void setGithubToken(String githubToken) {
 		this.githubToken = githubToken;
 	}
-
 	Artifact getArtifact() {
 		return this.artifact;
 	}
-
 	void setArtifact(Artifact artifact) {
 		this.artifact = artifact;
 	}
-
 	Settings getSettings() {
 		return this.settings;
 	}
-
 	void setSettings(Settings settings) {
 		this.settings = settings;
 	}
-
 	HttpClient getHttpClient() {
 		return this.httpClient;
 	}
 	void setHttpClient(HttpClient httpClient) {
 		this.httpClient = httpClient;
 	}
-
 	List<String> getIgnoreTypes() {
 		return ignoreTypes;
 	}
-
 	void setIgnoreTypes(List<String> ignoreTypes) {
 		this.ignoreTypes = ignoreTypes;
 	}
-
 	List<Artifact> getAttachedArtifacts() {
 		return attachedArtifacts;
 	}
-
 	void setAttachedArtifacts(List<Artifact> attachedArtifacts) {
 		this.attachedArtifacts = attachedArtifacts;
 	}
@@ -749,5 +726,17 @@ public class GitHubDeployMojo extends AbstractMojo {
 	}
 	void setRepo(String repo) {
 		this.repo = repo;
+	}
+	String getAuthToken() {
+		return authToken;
+	}
+	void setAuthToken(String authToken) {
+		this.authToken = authToken;
+	}
+	Map<String, GitHubDownload> getExistingDownloads() {
+		return existingDownloads;
+	}
+	void setExistingDownloads(Map<String, GitHubDownload> existingDownloads) {
+		this.existingDownloads = existingDownloads;
 	}
 }
