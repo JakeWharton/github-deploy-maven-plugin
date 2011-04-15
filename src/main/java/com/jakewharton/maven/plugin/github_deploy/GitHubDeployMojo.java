@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.regex.Matcher;
@@ -21,6 +22,7 @@ import org.apache.http.entity.mime.MultipartEntity;
 import org.apache.http.entity.mime.content.FileBody;
 import org.apache.http.entity.mime.content.StringBody;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.settings.Server;
@@ -204,7 +206,16 @@ public class GitHubDeployMojo extends AbstractMojo {
      * @required
      * @readonly
      */
-    private File file;
+    private File artifact;
+    
+    /**
+     * Attached artifacts
+     * 
+     * @parameter default-value="${project.attachedArtifacts}"
+     * @required
+     * @readonly
+     */
+    private List<Artifact> attachedArtifacts;
 	
 	/**
 	 * Maven settings.
@@ -254,18 +265,14 @@ public class GitHubDeployMojo extends AbstractMojo {
 		//Get all existing downloads
 		this.parseExistingDownloads(downloadsContent);
 
-		//Check for existing download for current artifact
-		if (this.existingDownloads.containsKey(this.file.getName())) {
-			if (this.replaceExisting) {
-				GitHubDownload existing = this.existingDownloads.get(this.file.getName());
-				this.deleteExistingDownload(existing);
-			} else {
-				this.error(ERROR_DOWNLOAD_EXISTS);
-			}
+		if ((this.artifact != null) && this.artifact.isFile()) {
+			this.deploy(this.artifact);
 		}
-
-		//Deploy the artifact
-		this.deploy(this.file);
+		for (Artifact attachedArtifact : this.attachedArtifacts) {
+			this.getLog().warn(attachedArtifact.getType() + " - " + attachedArtifact.getFile().getName());
+			//this.performDeploy(attachedArtifact.getFile());
+		}
+		
 		this.getLog().debug(DEBUG_DONE);
 	}
 	
@@ -281,11 +288,11 @@ public class GitHubDeployMojo extends AbstractMojo {
 		}
 		
 		//Get the packaged artifact
-        if (!this.file.exists()) {
-        	this.error(ERROR_NOT_FOUND, this.file.getName());
+        if (!this.artifact.exists()) {
+        	this.error(ERROR_NOT_FOUND, this.artifact.getName());
         }
-		this.getLog().debug("PATH: " + this.file.getAbsolutePath());
-		this.getLog().debug("NAME: " + this.file.getName());
+		this.getLog().debug("PATH: " + this.artifact.getAbsolutePath());
+		this.getLog().debug("NAME: " + this.artifact.getName());
 		
 		this.httpClient = new DefaultHttpClient();
 	}
@@ -451,13 +458,35 @@ public class GitHubDeployMojo extends AbstractMojo {
 	}
 	
 	/**
-	 * Deploy an artifact to the GitHub downloads. This method assumes that a
-	 * download with the same name does not already exist.
+	 * Deploy an artifact to GitHub downloads. This will check that the
+	 * download exists and react accordingly, and then perform the upload.
 	 * 
 	 * @param artifact Artifact for deployment.
 	 * @throws MojoFailureException
 	 */
 	void deploy(File artifact) throws MojoFailureException {
+		//Check for existing download for current artifact
+		if (this.existingDownloads.containsKey(this.artifact.getName())) {
+			if (this.replaceExisting) {
+				GitHubDownload existing = this.existingDownloads.get(this.artifact.getName());
+				this.deleteExistingDownload(existing);
+			} else {
+				this.error(ERROR_DOWNLOAD_EXISTS);
+			}
+		}
+
+		//Deploy the artifact
+		this.upload(this.artifact);
+	}
+	
+	/**
+	 * Upload the artifact to the GitHub downloads. This method assumes that a
+	 * download with the same name does not already exist.
+	 * 
+	 * @param artifact Artifact for upload.
+	 * @throws MojoFailureException
+	 */
+	void upload(File artifact) throws MojoFailureException {
 		//Perform upload info request
 		JSONObject deployInfo = this.loadDeployInfoContent(artifact);
 		
@@ -475,7 +504,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 		this.getLog().debug("SIGNATURE: " + signature);
 		this.getLog().debug("ACL: " + acl);
 		
-		//Set up deploy request
+		//Set up upload request
 		this.getLog().info(String.format(INFO_DEPLOY, artifact.getName()));
 		this.getLog().debug("DEPLOY URL: " + URL_DEPLOY);
 		HttpPost upload = new HttpPost(URL_DEPLOY);
@@ -495,7 +524,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 		}
 		upload.setEntity(uploadEntity);
 		
-		//Perform deployment
+		//Perform upload
 		this.checkedExecute(upload, HttpStatus.SC_CREATED, ERROR_DEPLOYING);
 		this.getLog().debug(String.format(DEBUG_DEPLOY_SUCCESS, artifact.getName(), this.repo));
 	}
@@ -631,11 +660,11 @@ public class GitHubDeployMojo extends AbstractMojo {
 	}
 
 	File getFile() {
-		return this.file;
+		return this.artifact;
 	}
 
 	void setFile(File file) {
-		this.file = file;
+		this.artifact = file;
 	}
 
 	Settings getSettings() {
