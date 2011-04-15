@@ -259,8 +259,15 @@ public class GitHubDeployMojo extends AbstractMojo {
 		//Load existing download info
 		this.loadExistingDownloadsInformation();
 
-		//Assemble and deploy all valid deploy targets
+		//Assemble all valid deploy targets
 		List<Artifact> artifacts = this.assembleDeployTargets();
+		
+		//Delete any matching downloads
+		if (this.existingDownloads.size() > 0) {
+			this.deleteAnyExisting(artifacts);
+		}
+		
+		//Do deployment of artifact
 		for (Artifact artifact : artifacts) {
 			this.deploy(artifact.getFile());
 		}
@@ -404,20 +411,20 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 */
 	void deleteExistingDownload(GitHubDownload download) throws MojoFailureException {
 		this.getLog().info(String.format(INFO_DELETE_EXISTING, download.getFileName()));
-		this.getLog().debug("  . Deleting download.");
+		this.getLog().debug(". Deleting download...");
 		
 		//Setup download delete request
 		String url = download.getDeleteUrl();
-		this.getLog().debug("      $url = " + url);
+		this.getLog().debug("    $url = " + url);
 		HttpPost request = new HttpPost(url);
 		BasicHttpEntity entity = new BasicHttpEntity();
 		String body = String.format(ENTITY_DELETE_DOWNLOAD, this.githubLogin, this.githubToken, this.authToken);
-		this.getLog().debug("      $body = " + body);
+		this.getLog().debug("    $body = " + body);
 		entity.setContent(IOUtils.toInputStream(body));
 		request.setEntity(entity);
 		
 		//Perform request
-		this.getLog().debug("    . Performing delete.");
+		this.getLog().debug("  . Performing delete.");
 		this.checkedExecute(request, HttpStatus.SC_MOVED_TEMPORARILY, ERROR_DOWNLOAD_DELETE);
 	}
 	
@@ -445,23 +452,29 @@ public class GitHubDeployMojo extends AbstractMojo {
 			if ((this.ignoreTypes != null) && this.ignoreTypes.contains(checkArtifact.getType())) {
 				this.getLog().info(String.format(INFO_IGNORING_ARTIFACT, checkArtifact.getFile().getName()));
 			} else {
-				//Check if artifact download exists already
-				this.getLog().debug("  . Checking existing download for artifact.");
-				if (this.existingDownloads.containsKey(checkArtifact.getFile().getName())) {
-					this.getLog().debug("  . Artifact already has an existing download.");
-					//Handle existing download
-					if (this.replaceExisting) {
-						this.deleteExistingDownload(this.existingDownloads.get(checkArtifact.getFile().getName()));
-					} else {
-						this.error(ERROR_DOWNLOAD_EXISTS);
-					}
-				}
-				
 				//Check so duplicate artifact deployments are not attempted
 				this.getLog().debug("  . Checking artifact has not already been marked for deployment.");
 				if (!artifacts.containsKey(checkArtifact.getFile().getName())) {
 					this.getLog().debug("  . Adding artifact to valid deployment list.");
 					artifacts.put(checkArtifact.getFile().getName(), checkArtifact);
+				}
+			}
+		}
+	}
+	
+	private void deleteAnyExisting(List<Artifact> artifacts) throws MojoFailureException {
+		this.getLog().debug("Deleting any existing downloads which match pending artifact deployments...");
+		
+		for (Artifact artifact : artifacts) {
+			//Check if artifact download exists already
+			this.getLog().debug(String.format("  . Checking for \"%s\".", artifact.getFile().getName()));
+			if (this.existingDownloads.containsKey(artifact.getFile().getName())) {
+				this.getLog().debug("  . Artifact already has an existing download.");
+				//Handle existing download
+				if (this.replaceExisting) {
+					this.deleteExistingDownload(this.existingDownloads.get(artifact.getFile().getName()));
+				} else {
+					this.error(ERROR_DOWNLOAD_EXISTS);
 				}
 			}
 		}
