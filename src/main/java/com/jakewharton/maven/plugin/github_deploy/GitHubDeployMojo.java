@@ -432,7 +432,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 		
 		//Perform request
 		this.getLog().debug("  . Performing delete.");
-		this.checkedExecute(request, HttpStatus.SC_MOVED_TEMPORARILY, ERROR_DOWNLOAD_DELETE);
+		this.checkedExecute(request, HttpStatus.SC_MOVED_TEMPORARILY, ERROR_DOWNLOAD_DELETE, download.getFileName());
 	}
 	
 	List<Artifact> assembleDeployTargets() throws MojoFailureException {
@@ -484,7 +484,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 				if (this.replaceExisting) {
 					this.deleteExistingDownload(this.existingDownloads.get(artifact.getFile().getName()));
 				} else {
-					this.error(ERROR_DOWNLOAD_EXISTS);
+					this.error(String.format(ERROR_DOWNLOAD_EXISTS, artifact.getFile().getName()));
 				}
 			}
 		}
@@ -611,7 +611,9 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * @return Contents of return body.
 	 * @throws MojoFailureException
 	 */
-	private String checkedExecute(HttpUriRequest request, int expectedStatus, String errorMessage) throws MojoFailureException {
+	private String checkedExecute(HttpUriRequest request, int expectedStatus, String errorMessage, Object... errorMessageArgs) throws MojoFailureException {
+		errorMessage = String.format(errorMessage, errorMessageArgs);
+		
 		try {
 			HttpResponse response = this.httpClient.execute(request);
 			
