@@ -44,18 +44,10 @@ class GitHubDownload {
 	}
 	
 	@Override
-	public boolean equals(Object other) {
-		if (other instanceof String) {
-			return this.getName().equals((String)other);
+	public boolean equals(Object obj) {
+		if (obj instanceof String) {
+			return this.getFileName().equals((String)obj);
 		}
-		if (other instanceof GitHubDownload) {
-			GitHubDownload otherDownload = (GitHubDownload)other;
-			return (this.getId() == otherDownload.getId())
-				&& this.getFileName().equals(otherDownload.getFileName())
-				&& this.getName().equals(otherDownload.getName())
-				&& this.getUrl().equals(otherDownload.getUrl())
-				&& this.getDeleteUrl().equals(otherDownload.getDeleteUrl());
-		}
-		return super.equals(other);
+		return super.equals(obj);
 	}
 }

@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
@@ -51,6 +52,10 @@ public class GitHubDeployMojo extends AbstractMojo {
 	static final String INFO_DEPLOY = STRINGS.getString("INFO_DEPLOY");
 	/** Deleting existing download message. */
 	static final String INFO_DELETE_EXISTING = STRINGS.getString("INFO_DELETE_EXISTING");
+	/** Ignoring artifact message. */
+	static final String INFO_IGNORING_ARTIFACT = STRINGS.getString("INFO_IGNORING_ARTIFACT");
+	/** Successful deployment message. */
+	static final String INFO_SUCCESS = STRINGS.getString("INFO_SUCCESS");
 	/** Artifact not found error message. */
 	static final String ERROR_NOT_FOUND = STRINGS.getString("ERROR_NOT_FOUND");
 	/** Maven offline error message. */
@@ -77,15 +82,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 	static final String ERROR_NO_CREDENTIALS = STRINGS.getString("ERROR_NO_CREDENTIALS");
 	/** GitHub authentication token error message. */
 	static final String ERROR_AUTH_TOKEN = STRINGS.getString("ERROR_AUTH_TOKEN");
-	/** Existing download check debugging message. */
-	static final String DEBUG_CHECK_DOWNLOAD = STRINGS.getString("DEBUG_CHECK_DOWNLOAD");
-	/** No settings.xml GitHub credentials debugging message. */
-	static final String DEBUG_NO_SETTINGS_CREDENTIALS = STRINGS.getString("DEBUG_NO_SETTINGS_CREDENTIALS");
-	/** Successful deployment debugging message. */
-	static final String DEBUG_DEPLOY_SUCCESS = STRINGS.getString("DEBUG_DEPLOY_SUCCESS");
-	/** Execution done debugging message. */
-	static final String DEBUG_DONE = STRINGS.getString("DEBUG_DONE");
-	
+
 	/** Git command to get GitHub user login. */
 	private static final String[] GIT_GITHUB_USER = new String[] { "git", "config", "--global", "github.user" };
 	/** Git command to get GitHub user token. */
@@ -178,6 +175,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 */
 	private boolean skip;
 	
+
 	/**
 	 * Replace existing downloads.
 	 * 
@@ -199,14 +197,21 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 */
 	private String githubToken;
 	
+	/**
+	 * Artifact types to ignore.
+	 * 
+	 * @parameter
+	 */
+	private List<String> ignoreTypes;
+	
     /**
-     * Packaged artifact file.
+     * Packaged artifact.
      * 
-     * @parameter default-value="${project.artifact.file}"
+     * @parameter default-value="${project.artifact}"
      * @required
      * @readonly
      */
-    private File artifact;
+    private Artifact artifact;
     
     /**
      * Attached artifacts
@@ -217,6 +222,10 @@ public class GitHubDeployMojo extends AbstractMojo {
      */
     private List<Artifact> attachedArtifacts;
 	
+    private String authToken;
+    
+    private Map<String, GitHubDownload> existingDownloads;
+    
 	/**
 	 * Maven settings.
 	 * 
@@ -225,16 +234,6 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * @readonly
 	 */
 	private Settings settings;
-	
-	/**
-	 * List of existing downloads for the GitHub repo.
-	 */
-	private Map<String, GitHubDownload> existingDownloads;
-	
-	/**
-	 * GitHub authentication token.
-	 */
-	private String authToken;
 	
 	/**
 	 * Common HTTP client.
@@ -256,24 +255,18 @@ public class GitHubDeployMojo extends AbstractMojo {
 		//Load repository data
 		this.loadRepositoryInformation();
 		this.loadRepositoryCredentials();
-
-		//Perform existing downloads request
-		String downloadsContent = this.loadExistingDownloadsContent();
 		
-		//Get GitHub auth token
-		this.parseGitHubAuthenticationToken(downloadsContent);
-		//Get all existing downloads
-		this.parseExistingDownloads(downloadsContent);
+		//Load existing download info
+		this.loadExistingDownloadsInformation();
 
-		if ((this.artifact != null) && this.artifact.isFile()) {
-			this.deploy(this.artifact);
-		}
-		for (Artifact attachedArtifact : this.attachedArtifacts) {
-			this.getLog().warn(attachedArtifact.getType() + " - " + attachedArtifact.getFile().getName());
-			//this.performDeploy(attachedArtifact.getFile());
+		//Assemble and deploy all valid deploy targets
+		List<Artifact> artifacts = this.assembleDeployTargets();
+		for (Artifact artifact : artifacts) {
+			this.deploy(artifact.getFile());
 		}
 		
-		this.getLog().debug(DEBUG_DONE);
+		this.getLog().info(String.format(INFO_SUCCESS, artifacts.size()));
+		this.getLog().debug("Done!");
 	}
 	
 	/**
@@ -282,18 +275,15 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * @throws MojoFailureException
 	 */
 	void initialize() throws MojoFailureException {
+		this.getLog().debug("Initializing plugin...");
+		
 		//Check we are not working offline
+		this.getLog().debug(". Checking Maven is operating online.");
 		if (this.settings.isOffline()) {
 			this.error(ERROR_OFFLINE);
 		}
 		
-		//Get the packaged artifact
-        if (!this.artifact.exists()) {
-        	this.error(ERROR_NOT_FOUND, this.artifact.getName());
-        }
-		this.getLog().debug("PATH: " + this.artifact.getAbsolutePath());
-		this.getLog().debug("NAME: " + this.artifact.getName());
-		
+		this.getLog().debug(". Instantiating default HTTP client.");
 		this.httpClient = new DefaultHttpClient();
 	}
 	
@@ -305,22 +295,27 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * @throws MojoFailureException
 	 */
 	void loadRepositoryInformation() throws MojoFailureException {
+		this.getLog().debug("Loading repository information...");
+		
 		if (StringUtils.isBlank(this.repoOwner) || StringUtils.isBlank(this.repoName)) {
-			//Get the target repository
+			this.getLog().debug(". No information supplied in plugin configuration.");
+			
+			//Try to get the target repository from the SCM URL.
+			this.getLog().debug(". Trying to infer from SCM URL.");
+			this.getLog().debug("  $scmUrl = " + this.scmUrl);
 			Matcher match = REGEX_REPO.matcher(this.scmUrl);
 			if (!match.matches()) {
 				this.error(ERROR_SCM_INVALID);
 			}
-			this.getLog().debug("SCM URL: " + this.scmUrl);
 			
 			//Get the repo owner and name from the match
 			this.repoOwner = match.group(1);
 			this.repoName = match.group(2);
 		}
 		this.repo = this.repoOwner + REPO_SEPERATOR + this.repoName;
-		this.getLog().debug("REPO OWNER: " + this.repoOwner);
-		this.getLog().debug("REPO NAME: " + this.repoName);
-		this.getLog().debug("REPO: " + this.repo);
+		this.getLog().debug("  $repoOwner = " + this.repoOwner);
+		this.getLog().debug("  $repoName = " + this.repoName);
+		this.getLog().debug("  $repo = " + this.repo);
 	}
 	
 	/**
@@ -332,15 +327,20 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * @throws MojoFailureException
 	 */
 	void loadRepositoryCredentials() throws MojoFailureException {
+		this.getLog().debug("Loading repository credentials...");
+		
 		if (StringUtils.isBlank(this.githubLogin) || StringUtils.isBlank(this.githubToken)) {
+			this.getLog().debug(". No information supplied in plugin configuration.");
+			
 			//Attempt to get GitHub credentials from settings and git if not already specified
+			this.getLog().debug(". Checking settings.xml for credentials.");
 			Server githubDeploy = this.settings.getServer(SETTINGS_SERVER_ID);
 			if (githubDeploy != null) {
 				this.githubLogin = githubDeploy.getUsername();
 				this.githubToken = githubDeploy.getPassphrase();
 			} else {
+				this.getLog().debug(". No credentials in settings.xml. Checking git configuration.");
 				try {
-					this.getLog().debug(DEBUG_NO_SETTINGS_CREDENTIALS);
 					this.githubLogin = IOUtils.toString(Runtime.getRuntime().exec(GIT_GITHUB_USER).getInputStream());
 					this.githubToken = IOUtils.toString(Runtime.getRuntime().exec(GIT_GITHUB_TOKEN).getInputStream());
 				} catch (IOException e) {}
@@ -351,18 +351,33 @@ public class GitHubDeployMojo extends AbstractMojo {
 		}
 		this.githubLogin = this.githubLogin.trim();
 		this.githubToken = this.githubToken.trim();
-		this.getLog().debug("LOGIN: " + this.githubLogin);
-		this.getLog().debug("TOKEN: " + this.githubToken);
+		this.getLog().debug("  $githubLogin = " + this.githubLogin);
+		this.getLog().debug("  $githubToken = " + this.githubToken);
 	}
 	
-	/**
-	 * Parse a list of existing downloads from the page contents.
-	 * 
-	 * @param content Page contents.
-	 */
-	void parseExistingDownloads(String content) {
-		this.existingDownloads = new HashMap<String, GitHubDownload>();
+	void loadExistingDownloadsInformation() throws MojoFailureException {
+		this.getLog().info(INFO_CHECK_DOWNLOADS);
+		this.getLog().debug("Loading existing downloads information...");
 		
+		//Perform request
+		String url = String.format(URL_DOWNLOADS_WITH_AUTH, this.repo, this.githubLogin, this.githubToken);
+		this.getLog().debug("  $url = " + url);
+		this.getLog().debug(". Performing request.");
+		String content = this.checkedExecute(new HttpGet(url), HttpStatus.SC_OK, ERROR_CHECK_DOWNLOADS);
+
+		//Parse authentication token
+		this.getLog().debug(". Parsing content for authentication token.");
+		Matcher authTokenMatcher = REGEX_AUTH_TOKEN.matcher(content);
+		if (authTokenMatcher.find()) {
+			this.authToken = authTokenMatcher.group(1);
+			this.getLog().debug("  $authToken = " + authTokenMatcher.group(1));
+		} else {
+			this.error(ERROR_AUTH_TOKEN);
+		}
+
+		//Parse download list
+		this.getLog().debug(". Parsing content for existing downloads.");
+		this.existingDownloads = new HashMap<String, GitHubDownload>();
 		String regex = String.format(REGEX_DOWNLOADS, this.repo);
 		Pattern pattern = Pattern.compile(regex, Pattern.DOTALL);
 		Matcher matcher = pattern.matcher(content);
@@ -375,24 +390,10 @@ public class GitHubDeployMojo extends AbstractMojo {
 			download.setFileName(matcher.group(4));
 			download.setName(matcher.group(5));
 			
+			this.getLog().debug(String.format("  . Found download \"%s\".", download.getFileName()));
 			this.existingDownloads.put(download.getFileName(), download);
 		}
-	}
-	
-	/**
-	 * Parse the GitHub authentication token from the page contents.
-	 * 
-	 * @param content Page contents.
-	 * @throws MojoFailureException
-	 */
-	void parseGitHubAuthenticationToken(String content) throws MojoFailureException {
-		Matcher authTokenMatcher = REGEX_AUTH_TOKEN.matcher(content);
-		if (authTokenMatcher.find()) {
-			this.authToken = authTokenMatcher.group();
-			this.getLog().debug("AUTH TOKEN: " + this.authToken);
-		} else {
-			this.error(ERROR_AUTH_TOKEN);
-		}
+		this.getLog().debug(String.format(". Found %s downloads. ", this.existingDownloads.size()));
 	}
 	
 	/**
@@ -402,131 +403,148 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * @throws MojoFailureException
 	 */
 	void deleteExistingDownload(GitHubDownload download) throws MojoFailureException {
+		this.getLog().info(String.format(INFO_DELETE_EXISTING, download.getFileName()));
+		this.getLog().debug("  . Deleting download.");
+		
 		//Setup download delete request
-		this.getLog().info(INFO_DELETE_EXISTING);
-		this.getLog().debug("DOWNLOAD DELETE URL: " + download.getDeleteUrl());					
-		HttpPost dlDelete = new HttpPost(download.getDeleteUrl());
-		BasicHttpEntity dlDeleteEntity = new BasicHttpEntity();
-		String dlDeleteBody = String.format(ENTITY_DELETE_DOWNLOAD, this.githubLogin, this.githubToken, this.authToken);
-		dlDeleteEntity.setContent(IOUtils.toInputStream(dlDeleteBody));
-		dlDelete.setEntity(dlDeleteEntity);
+		String url = download.getDeleteUrl();
+		this.getLog().debug("      $url = " + url);
+		HttpPost request = new HttpPost(url);
+		BasicHttpEntity entity = new BasicHttpEntity();
+		String body = String.format(ENTITY_DELETE_DOWNLOAD, this.githubLogin, this.githubToken, this.authToken);
+		this.getLog().debug("      $body = " + body);
+		entity.setContent(IOUtils.toInputStream(body));
+		request.setEntity(entity);
 		
 		//Perform request
-		this.checkedExecute(dlDelete, HttpStatus.SC_MOVED_TEMPORARILY, ERROR_DOWNLOAD_DELETE);
+		this.getLog().debug("    . Performing delete.");
+		this.checkedExecute(request, HttpStatus.SC_MOVED_TEMPORARILY, ERROR_DOWNLOAD_DELETE);
+	}
+	
+	List<Artifact> assembleDeployTargets() throws MojoFailureException {
+		this.getLog().debug("Assembling deploy targets...");
+		
+		Map<String, Artifact> artifacts = new HashMap<String, Artifact>();
+		
+		this.checkAddArtifact(artifacts, this.artifact);
+		for (Artifact attachedArtifact : this.attachedArtifacts) {
+			this.checkAddArtifact(artifacts, attachedArtifact);
+		}
+		
+		this.getLog().debug(String.format(". Found %s valid deployable artifacts.", artifacts.size()));
+		return new LinkedList<Artifact>(artifacts.values());
+	}
+	
+	private void checkAddArtifact(Map<String, Artifact> artifacts, Artifact checkArtifact) throws MojoFailureException {
+		this.getLog().debug(String.format(". Check-adding artifact \"%s\"...", checkArtifact.getFile().getName()));
+		
+		//Check if the artifact is a valid upload candidate
+		if ((checkArtifact.getFile() != null) && (checkArtifact.getFile().isFile())) {
+			//Check that this artifact's type is not being ignored
+			this.getLog().debug(String.format("  . Checking artifact type (%s) is not explicity being ignored.", checkArtifact.getType()));
+			if ((this.ignoreTypes != null) && this.ignoreTypes.contains(checkArtifact.getType())) {
+				this.getLog().info(String.format(INFO_IGNORING_ARTIFACT, checkArtifact.getFile().getName()));
+			} else {
+				//Check if artifact download exists already
+				this.getLog().debug("  . Checking existing download for artifact.");
+				if (this.existingDownloads.containsKey(checkArtifact.getFile().getName())) {
+					this.getLog().debug("  . Artifact already has an existing download.");
+					//Handle existing download
+					if (this.replaceExisting) {
+						this.deleteExistingDownload(this.existingDownloads.get(checkArtifact.getFile().getName()));
+					} else {
+						this.error(ERROR_DOWNLOAD_EXISTS);
+					}
+				}
+				
+				//Check so duplicate artifact deployments are not attempted
+				this.getLog().debug("  . Checking artifact has not already been marked for deployment.");
+				if (!artifacts.containsKey(checkArtifact.getFile().getName())) {
+					this.getLog().debug("  . Adding artifact to valid deployment list.");
+					artifacts.put(checkArtifact.getFile().getName(), checkArtifact);
+				}
+			}
+		}
 	}
 	
 	/**
-	 * Load the existing downloads page content for the GitHub repo.
+	 * Deploy an artifact to GitHub downloads. This method assumes that a
+	 * download with the same name does not already exist.
 	 * 
-	 * @return Page content.
+	 * @param artifactFile Artifact for upload.
 	 * @throws MojoFailureException
 	 */
-	String loadExistingDownloadsContent() throws MojoFailureException {
-		this.getLog().info(INFO_CHECK_DOWNLOADS);
-		String dlCheckUrl = String.format(URL_DOWNLOADS_WITH_AUTH, this.repo, this.githubLogin, this.githubToken);
-		this.getLog().debug("CHECK DOWNLOADS URL " + dlCheckUrl);
-		HttpGet dlCheck = new HttpGet(dlCheckUrl);
-		return this.checkedExecute(dlCheck, HttpStatus.SC_OK, ERROR_CHECK_DOWNLOADS);
-	}
-	
-	/**
-	 * Send the deploy info and load the returned S3 authentication details.
-	 * 
-	 * @param artifact Artifact we will be deploying.
-	 * @return S3 Authentication information
-	 * @throws MojoFailureException
-	 */
-	JSONObject loadDeployInfoContent(File artifact) throws MojoFailureException {
+	void deploy(File artifactFile) throws MojoFailureException {
 		this.getLog().info(INFO_DEPLOY_INFO);
-		String deployInfoUrl = String.format(URL_DOWNLOADS, this.repo);
-		this.getLog().debug("DEPLOY INFO URL: " + deployInfoUrl);
-		HttpPost deployInfo = new HttpPost(deployInfoUrl);
-		BasicHttpEntity deployInfoEntity = new BasicHttpEntity(); 
-		String deployInfoBody = String.format(ENTITY_DEPLOY_INFO, this.githubLogin, this.githubToken, artifact.length(), MIME_TYPE, artifact.getName());
-		deployInfoEntity.setContent(IOUtils.toInputStream(deployInfoBody));
-		deployInfo.setEntity(deployInfoEntity);
-		String content = this.checkedExecute(deployInfo, HttpStatus.SC_OK, ERROR_DEPLOY_INFO);
+		this.getLog().debug("Deploying file.");
+		
+		this.getLog().debug(". Sending deploy info and loading S3 details...");
+		
+		//Prepare request
+		String url1 = String.format(URL_DOWNLOADS, this.repo);
+		this.getLog().debug("  $url = " + url1);
+		HttpPost request1 = new HttpPost(url1);
+		BasicHttpEntity entity1 = new BasicHttpEntity();
+		String body1 = String.format(ENTITY_DEPLOY_INFO, this.githubLogin, this.githubToken, artifactFile.length(), MIME_TYPE, artifactFile.getName());
+		this.getLog().debug("  $body = " + body1);
+		entity1.setContent(IOUtils.toInputStream(body1));
+		request1.setEntity(entity1);
+		this.getLog().debug(". Sending deploy information.");
+		String content = this.checkedExecute(request1, HttpStatus.SC_OK, ERROR_DEPLOY_INFO);
 
 		//Parse JSON response
+		this.getLog().debug(". Parsing JSON response.");
+		JSONObject deployInfo = null;
 		try {
-			return new JSONObject(content);
+			deployInfo = new JSONObject(content);
 		} catch (JSONException e) {
 			this.error(e, ERROR_JSON_PARSE);
 		}
 		
-		return null; //never reached
-	}
-	
-	/**
-	 * Deploy an artifact to GitHub downloads. This will check that the
-	 * download exists and react accordingly, and then perform the upload.
-	 * 
-	 * @param artifact Artifact for deployment.
-	 * @throws MojoFailureException
-	 */
-	void deploy(File artifact) throws MojoFailureException {
-		//Check for existing download for current artifact
-		if (this.existingDownloads.containsKey(this.artifact.getName())) {
-			if (this.replaceExisting) {
-				GitHubDownload existing = this.existingDownloads.get(this.artifact.getName());
-				this.deleteExistingDownload(existing);
-			} else {
-				this.error(ERROR_DOWNLOAD_EXISTS);
-			}
-		}
-
-		//Deploy the artifact
-		this.upload(this.artifact);
-	}
-	
-	/**
-	 * Upload the artifact to the GitHub downloads. This method assumes that a
-	 * download with the same name does not already exist.
-	 * 
-	 * @param artifact Artifact for upload.
-	 * @throws MojoFailureException
-	 */
-	void upload(File artifact) throws MojoFailureException {
-		//Perform upload info request
-		JSONObject deployInfo = this.loadDeployInfoContent(artifact);
-		
 		//Extract needed information
+		this.getLog().debug(". Extracting S3 details.");
 		String prefix = this.checkedJsonProperty(deployInfo, JSON_PROPERTY_PREFIX);
-		String key = prefix + artifact.getName();
+		String key = prefix + artifactFile.getName();
 		String policy = this.checkedJsonProperty(deployInfo, JSON_PROPERTY_POLICY);
 		String accessKeyId = this.checkedJsonProperty(deployInfo, JSON_PROPERTY_ACCESS_KEY_ID);
 		String signature = this.checkedJsonProperty(deployInfo, JSON_PROPERTY_SIGNATURE);
 		String acl = this.checkedJsonProperty(deployInfo, JSON_PROPERTY_ACL);
-		this.getLog().debug("PREFIX: " + prefix);
-		this.getLog().debug("KEY: " + key);
-		this.getLog().debug("POLICY: " + policy);
-		this.getLog().debug("ACCESS KEY ID: " + accessKeyId);
-		this.getLog().debug("SIGNATURE: " + signature);
-		this.getLog().debug("ACL: " + acl);
+		this.getLog().debug("  $prefix = " + prefix);
+		this.getLog().debug("  $key = " + key);
+		this.getLog().debug("  $policy = " + policy);
+		this.getLog().debug("  $accessKeyId = " + accessKeyId);
+		this.getLog().debug("  $signature = " + signature);
+		this.getLog().debug("  $acl = " + acl);
+		
+		this.getLog().info(String.format(INFO_DEPLOY, artifactFile.getName()));
+		this.getLog().debug("Deploying artifact to repository.");
 		
 		//Set up upload request
-		this.getLog().info(String.format(INFO_DEPLOY, artifact.getName()));
-		this.getLog().debug("DEPLOY URL: " + URL_DEPLOY);
-		HttpPost upload = new HttpPost(URL_DEPLOY);
-		MultipartEntity uploadEntity = new MultipartEntity();
+		String url2 = URL_DEPLOY;
+		this.getLog().debug("  $url = " + url2);
+		HttpPost request2 = new HttpPost(url2);
+		
+		this.getLog().debug(". Assembling multipart request.");
+		MultipartEntity entity2 = new MultipartEntity();
 		try {
-			uploadEntity.addPart(HTTP_PROPERTY_KEY, new StringBody(key));
-			uploadEntity.addPart(HTTP_PROPERTY_ACL, new StringBody(acl));
-			uploadEntity.addPart(HTTP_PROPERTY_FILENAME, new StringBody(artifact.getName()));
-			uploadEntity.addPart(HTTP_PROPERTY_POLICY, new StringBody(policy));
-			uploadEntity.addPart(HTTP_PROPERTY_AWS_ACCESS_ID, new StringBody(accessKeyId));
-			uploadEntity.addPart(HTTP_PROPERTY_SIGNATURE, new StringBody(signature));
-			uploadEntity.addPart(HTTP_PROPERTY_SUCCESS_ACTION_STATUS, new StringBody(Integer.toString(HttpStatus.SC_CREATED)));
-			uploadEntity.addPart(HTTP_PROPERTY_CONTENT_TYPE, new StringBody(MIME_TYPE));
-			uploadEntity.addPart(HTTP_PROPERTY_FILE, new FileBody(artifact));
+			entity2.addPart(HTTP_PROPERTY_KEY, new StringBody(key));
+			entity2.addPart(HTTP_PROPERTY_ACL, new StringBody(acl));
+			entity2.addPart(HTTP_PROPERTY_FILENAME, new StringBody(artifactFile.getName()));
+			entity2.addPart(HTTP_PROPERTY_POLICY, new StringBody(policy));
+			entity2.addPart(HTTP_PROPERTY_AWS_ACCESS_ID, new StringBody(accessKeyId));
+			entity2.addPart(HTTP_PROPERTY_SIGNATURE, new StringBody(signature));
+			entity2.addPart(HTTP_PROPERTY_SUCCESS_ACTION_STATUS, new StringBody(Integer.toString(HttpStatus.SC_CREATED)));
+			entity2.addPart(HTTP_PROPERTY_CONTENT_TYPE, new StringBody(MIME_TYPE));
+			entity2.addPart(HTTP_PROPERTY_FILE, new FileBody(artifactFile));
 		} catch (UnsupportedEncodingException e) {
 			this.error(e, ERROR_ENCODING);
 		}
-		upload.setEntity(uploadEntity);
+		request2.setEntity(entity2);
 		
 		//Perform upload
-		this.checkedExecute(upload, HttpStatus.SC_CREATED, ERROR_DEPLOYING);
-		this.getLog().debug(String.format(DEBUG_DEPLOY_SUCCESS, artifact.getName(), this.repo));
+		this.getLog().debug(". Performing upload.");
+		this.checkedExecute(request2, HttpStatus.SC_CREATED, ERROR_DEPLOYING);
+		this.getLog().debug(String.format(". Successfully deployed \"%s\".", artifactFile.getName()));
 	}
 
 	/**
@@ -571,7 +589,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 			HttpResponse response = this.httpClient.execute(request);
 			
 			int status = response.getStatusLine().getStatusCode();
-			this.getLog().debug("HTTP status code: " + status);
+			this.getLog().debug("< HTTP " + status);
 			if (status == expectedStatus) {
 				return IOUtils.toString(response.getEntity().getContent());
 			}
@@ -659,12 +677,12 @@ public class GitHubDeployMojo extends AbstractMojo {
 		this.githubToken = githubToken;
 	}
 
-	File getFile() {
+	Artifact getArtifact() {
 		return this.artifact;
 	}
 
-	void setFile(File file) {
-		this.artifact = file;
+	void setArtifact(Artifact artifact) {
+		this.artifact = artifact;
 	}
 
 	Settings getSettings() {
@@ -675,26 +693,32 @@ public class GitHubDeployMojo extends AbstractMojo {
 		this.settings = settings;
 	}
 
-	Map<String, GitHubDownload> getExistingDownloads() {
-		return this.existingDownloads;
-	}
-
-	void setExistingDownloads(Map<String, GitHubDownload> existingDownloads) {
-		this.existingDownloads = existingDownloads;
-	}
-
-	String getAuthToken() {
-		return this.authToken;
-	}
-
-	void setAuthToken(String authToken) {
-		this.authToken = authToken;
-	}
-
 	HttpClient getHttpClient() {
 		return this.httpClient;
 	}
 	void setHttpClient(HttpClient httpClient) {
 		this.httpClient = httpClient;
+	}
+
+	List<String> getIgnoreTypes() {
+		return ignoreTypes;
+	}
+
+	void setIgnoreTypes(List<String> ignoreTypes) {
+		this.ignoreTypes = ignoreTypes;
+	}
+
+	List<Artifact> getAttachedArtifacts() {
+		return attachedArtifacts;
+	}
+
+	void setAttachedArtifacts(List<Artifact> attachedArtifacts) {
+		this.attachedArtifacts = attachedArtifacts;
+	}
+	String getRepo() {
+		return repo;
+	}
+	void setRepo(String repo) {
+		this.repo = repo;
 	}
 }
