@@ -44,20 +44,28 @@ public class GitHubDeployMojo extends AbstractMojo {
 	static final ResourceBundle STRINGS = ResourceBundle.getBundle(GitHubDeployMojo.class.getPackage().getName() + ".Strings");
 	/** Skipped execution message. */
 	static final String INFO_SKIP = STRINGS.getString("INFO_SKIP");
-	/** Checking downloads message. */
-	static final String INFO_CHECK_DOWNLOADS = STRINGS.getString("INFO_CHECK_DOWNLOADS");
-	/** Sending deploy information message. */
-	static final String INFO_DEPLOY_INFO = STRINGS.getString("INFO_DEPLOY_INFO");
+	/** Existing downloads message. */
+	static final String INFO_EXISTING = STRINGS.getString("INFO_EXISTING");
+	/** Existing downloads count message. */
+	static final String INFO_EXISTING_COUNT = STRINGS.getString("INFO_EXISTING_COUNT");
+	/** Assemble target artifacts message. */
+	static final String INFO_ARTIFACTS = STRINGS.getString("INFO_ARTIFACTS");
+	/** Valid artifact detail message. */
+	static final String INFO_ARTIFACT_DETAIL = STRINGS.getString("INFO_ARTIFACT_DETAIL");
+	/** Ignoring artifact message. */
+	static final String INFO_ARTIFACT_IGNORE = STRINGS.getString("INFO_ARTIFACT_IGNORE");
+	/** Delete artifacts message. */
+	static final String INFO_DELETE = STRINGS.getString("INFO_DELETE");
+	/** Deleting existing download message. */
+	static final String INFO_DELETE_DETAIL = STRINGS.getString("INFO_DELETE_DETAIL");
 	/** Deploying message. */
 	static final String INFO_DEPLOY = STRINGS.getString("INFO_DEPLOY");
-	/** Deleting existing download message. */
-	static final String INFO_DELETE_EXISTING = STRINGS.getString("INFO_DELETE_EXISTING");
-	/** Ignoring artifact message. */
-	static final String INFO_IGNORING_ARTIFACT = STRINGS.getString("INFO_IGNORING_ARTIFACT");
+	/** Sending deploy information message. */
+	static final String INFO_DEPLOY_SEND = STRINGS.getString("INFO_DEPLOY_SEND");
+	/** Uploading artifact message. */
+	static final String INFO_DEPLOY_UPLOAD = STRINGS.getString("INFO_DEPLOY_UPLOAD");
 	/** Successful deployment message. */
 	static final String INFO_SUCCESS = STRINGS.getString("INFO_SUCCESS");
-	/** Assemble target artifacts message. */
-	static final String INFO_ASSEMBLE_TARGETS = STRINGS.getString("INFO_ASSEMBLE_TARGETS");
 	/** Artifact not found error message. */
 	static final String ERROR_NOT_FOUND = STRINGS.getString("ERROR_NOT_FOUND");
 	/** Maven offline error message. */
@@ -245,6 +253,8 @@ public class GitHubDeployMojo extends AbstractMojo {
 	
 	@Override
 	public void execute() throws MojoFailureException {
+		this.getLog().debug("Go!");
+		
 		//Do not run if we have been told to skip
 		if (this.skip) {
 			this.getLog().info(INFO_SKIP);
@@ -274,6 +284,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 			this.deploy(artifact.getFile());
 		}
 		
+		//Success!
 		this.getLog().info(String.format(INFO_SUCCESS, artifacts.size()));
 		this.getLog().debug("Done!");
 	}
@@ -365,7 +376,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 	}
 	
 	void loadExistingDownloadsInformation() throws MojoFailureException {
-		this.getLog().info(INFO_CHECK_DOWNLOADS);
+		this.getLog().info(INFO_EXISTING);
 		this.getLog().debug("Loading existing downloads information...");
 		
 		//Perform request
@@ -403,6 +414,8 @@ public class GitHubDeployMojo extends AbstractMojo {
 			this.existingDownloads.put(download.getFileName(), download);
 		}
 		this.getLog().debug(String.format(". Found %s downloads. ", this.existingDownloads.size()));
+		this.getLog().info(String.format(INFO_EXISTING_COUNT, this.existingDownloads.size()));
+		this.getLog().info("");
 	}
 	
 	/**
@@ -412,7 +425,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * @throws MojoFailureException
 	 */
 	void deleteExistingDownload(GitHubDownload download) throws MojoFailureException {
-		this.getLog().info(String.format(INFO_DELETE_EXISTING, download.getFileName()));
+		this.getLog().info(String.format(INFO_DELETE_DETAIL, download.getFileName()));
 		this.getLog().debug(". Deleting download...");
 		
 		//Setup download delete request
@@ -431,7 +444,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 	}
 	
 	List<Artifact> assembleDeployTargets() throws MojoFailureException {
-		this.getLog().info(INFO_ASSEMBLE_TARGETS);
+		this.getLog().info(INFO_ARTIFACTS);
 		this.getLog().debug("Assembling deploy targets...");
 		
 		Map<String, Artifact> artifacts = new HashMap<String, Artifact>();
@@ -440,6 +453,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 		for (Artifact attachedArtifact : this.attachedArtifacts) {
 			this.checkAddArtifact(artifacts, attachedArtifact);
 		}
+		this.getLog().info("");
 		
 		this.getLog().debug(String.format(". Found %s valid deployable artifacts.", artifacts.size()));
 		return new LinkedList<Artifact>(artifacts.values());
@@ -453,11 +467,12 @@ public class GitHubDeployMojo extends AbstractMojo {
 			//Check that this artifact's type is not being ignored
 			this.getLog().debug(String.format("  . Checking artifact type (%s) is not explicity being ignored.", checkArtifact.getType()));
 			if ((this.ignoreTypes != null) && this.ignoreTypes.contains(checkArtifact.getType())) {
-				this.getLog().info(String.format(INFO_IGNORING_ARTIFACT, checkArtifact.getFile().getName()));
+				this.getLog().info(String.format(INFO_ARTIFACT_IGNORE, checkArtifact.getFile().getName(), checkArtifact.getType()));
 			} else {
 				//Check so duplicate artifact deployments are not attempted
 				this.getLog().debug("  . Checking artifact has not already been marked for deployment.");
 				if (!artifacts.containsKey(checkArtifact.getFile().getName())) {
+					this.getLog().info(String.format(INFO_ARTIFACT_DETAIL, checkArtifact.getFile().getName(), checkArtifact.getType()));
 					this.getLog().debug("  . Adding artifact to valid deployment list.");
 					artifacts.put(checkArtifact.getFile().getName(), checkArtifact);
 				}
@@ -466,6 +481,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 	}
 	
 	private void deleteAnyExisting(List<Artifact> artifacts) throws MojoFailureException {
+		this.getLog().info(INFO_DELETE);
 		this.getLog().debug("Deleting any existing downloads which match pending artifact deployments...");
 		
 		for (Artifact artifact : artifacts) {
@@ -481,6 +497,8 @@ public class GitHubDeployMojo extends AbstractMojo {
 				}
 			}
 		}
+		
+		this.getLog().info("");
 	}
 	
 	/**
@@ -491,9 +509,10 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * @throws MojoFailureException
 	 */
 	void deploy(File artifactFile) throws MojoFailureException {
-		this.getLog().info(INFO_DEPLOY_INFO);
+		this.getLog().info(String.format(INFO_DEPLOY, artifactFile.getName()));
 		this.getLog().debug("Deploying file.");
 		
+		this.getLog().info(INFO_DEPLOY_SEND);
 		this.getLog().debug(". Sending deploy info and loading S3 details...");
 		
 		//Prepare request
@@ -532,7 +551,6 @@ public class GitHubDeployMojo extends AbstractMojo {
 		this.getLog().debug("  $signature = " + signature);
 		this.getLog().debug("  $acl = " + acl);
 		
-		this.getLog().info(String.format(INFO_DEPLOY, artifactFile.getName()));
 		this.getLog().debug("Deploying artifact to repository.");
 		
 		//Set up upload request
@@ -558,6 +576,8 @@ public class GitHubDeployMojo extends AbstractMojo {
 		request2.setEntity(entity2);
 		
 		//Perform upload
+		this.getLog().info(INFO_DEPLOY_UPLOAD);
+		this.getLog().info("");
 		this.getLog().debug(". Performing upload.");
 		this.checkedExecute(request2, HttpStatus.SC_CREATED, ERROR_DEPLOYING);
 		this.getLog().debug(String.format(". Successfully deployed \"%s\".", artifactFile.getName()));

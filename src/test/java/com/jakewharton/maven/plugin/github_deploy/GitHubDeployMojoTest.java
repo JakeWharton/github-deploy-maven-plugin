@@ -19,13 +19,17 @@ public class GitHubDeployMojoTest extends TestCase {
 		
 		//Check strings loaded
 		Assert.assertNotNull(GitHubDeployMojo.INFO_SKIP);
-		Assert.assertNotNull(GitHubDeployMojo.INFO_CHECK_DOWNLOADS);
-		Assert.assertNotNull(GitHubDeployMojo.INFO_DEPLOY_INFO);
+		Assert.assertNotNull(GitHubDeployMojo.INFO_EXISTING);
+		Assert.assertNotNull(GitHubDeployMojo.INFO_EXISTING_COUNT);
+		Assert.assertNotNull(GitHubDeployMojo.INFO_ARTIFACTS);
+		Assert.assertNotNull(GitHubDeployMojo.INFO_ARTIFACT_DETAIL);
+		Assert.assertNotNull(GitHubDeployMojo.INFO_ARTIFACT_IGNORE);
+		Assert.assertNotNull(GitHubDeployMojo.INFO_DELETE);
+		Assert.assertNotNull(GitHubDeployMojo.INFO_DELETE_DETAIL);
 		Assert.assertNotNull(GitHubDeployMojo.INFO_DEPLOY);
-		Assert.assertNotNull(GitHubDeployMojo.INFO_DELETE_EXISTING);
-		Assert.assertNotNull(GitHubDeployMojo.INFO_IGNORING_ARTIFACT);
+		Assert.assertNotNull(GitHubDeployMojo.INFO_DEPLOY_SEND);
+		Assert.assertNotNull(GitHubDeployMojo.INFO_DEPLOY_UPLOAD);
 		Assert.assertNotNull(GitHubDeployMojo.INFO_SUCCESS);
-		Assert.assertNotNull(GitHubDeployMojo.INFO_ASSEMBLE_TARGETS);
 		Assert.assertNotNull(GitHubDeployMojo.ERROR_NOT_FOUND);
 		Assert.assertNotNull(GitHubDeployMojo.ERROR_OFFLINE);
 		Assert.assertNotNull(GitHubDeployMojo.ERROR_SCM_INVALID);
