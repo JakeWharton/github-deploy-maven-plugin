@@ -10,14 +10,18 @@ import junit.framework.TestCase;
  */
 public class GitHubDeployMojoTest extends TestCase {
 	/**
-	 * Check to make sure the properties file was loaded and that all of the
-	 * strings are available.
+	 * Check to make sure the properties file was loaded.
 	 */
 	public void test_resourcesLoaded() {
 		//Check properties file loaded
 		Assert.assertNotNull(GitHubDeployMojo.STRINGS);
-		
-		//Check strings loaded
+	}
+	
+	/**
+	 * Check to make sure all of the info strings are available.
+	 */
+	public void test_infoStrings() {
+		//Check info strings
 		Assert.assertNotNull(GitHubDeployMojo.INFO_SKIP);
 		Assert.assertNotNull(GitHubDeployMojo.INFO_ARTIFACTS);
 		Assert.assertNotNull(GitHubDeployMojo.INFO_ARTIFACT_DETAIL);
@@ -28,6 +32,13 @@ public class GitHubDeployMojoTest extends TestCase {
 		Assert.assertNotNull(GitHubDeployMojo.INFO_DEPLOY_SEND);
 		Assert.assertNotNull(GitHubDeployMojo.INFO_DEPLOY_UPLOAD);
 		Assert.assertNotNull(GitHubDeployMojo.INFO_SUCCESS);
+	}
+	
+	/**
+	 * Check to make sure all of the error strings are available.
+	 */
+	public void test_errorStrings() {
+		//Check error strings
 		Assert.assertNotNull(GitHubDeployMojo.ERROR_NOT_FOUND);
 		Assert.assertNotNull(GitHubDeployMojo.ERROR_OFFLINE);
 		Assert.assertNotNull(GitHubDeployMojo.ERROR_SCM_INVALID);
