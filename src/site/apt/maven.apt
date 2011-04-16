@@ -1,0 +1,13 @@
+Maven
+
+  This project has JARs deployed to the Maven central repository.
+  
+  Add the following dependency:
+  
+-------------------------------------------------
+<dependency>
+  <groupId>com.jakewharton</groupId>
+  <artifactId>github-deploy-maven-plugin</artifactId>
+  <version>1.0.0</version>
+</dependency>
+-------------------------------------------------

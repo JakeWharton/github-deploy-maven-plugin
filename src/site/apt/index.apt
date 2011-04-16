@@ -1,0 +1,33 @@
+GitHub Deploy Maven Plugin
+
+
+  This plugin will augment the normal Maven artifact deployment process by also
+  deploying the artifacts to an associated GitHub project as file downloads.
+  
+  With a variety of configuration options you can control which artifacts will be
+  deployed, whether or not they'll replace existing downloads of the same name,
+  or an alternate GitHub project the artifacts should be deployed to.
+  
+
+* Usage
+
+  The base configuration for the plugin will deploy all attached artifacts
+  without replacing any existing downloads of the same name.
+
+------------------------------
+<plugin>
+    <groupId>com.jakewharton</groupId>
+    <artifactId>github-deploy-maven-plugin</artifactId>
+    <version>1.0.0</version>
+    <execution>
+        <execution>
+            <goals>
+                <goal>deploy</goal>
+            </goal>
+        </execution>
+    </execution>
+</plugin>
+------------------------------
+
+  There are a range of configuration options which can control the behavior of
+  the plugin.
