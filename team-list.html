@@ -13,7 +13,7 @@
 
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
-    <title>GitHub Deploy Maven Plugin - </title>
+    <title>GitHub Deploy Maven Plugin - Team list</title>
     <style type="text/css" media="all">
       @import url("./css/maven-base.css");
       @import url("./css/maven-theme.css");
@@ -74,8 +74,8 @@
             <ul>
               
     <li>
-              <strong>Home</strong>
-        </li>
+                    <a href="index.html">Home</a>
+          </li>
               
     <li>
                     <a href="maven.html">Maven</a>
@@ -89,7 +89,7 @@
                   
                   
                   
-                  
+                        
                   
                   <li>
               <strong>Project Information</strong>
@@ -116,8 +116,8 @@
           </li>
               
     <li>
-                    <a href="team-list.html">Project Team</a>
-          </li>
+              <strong>Project Team</strong>
+        </li>
               
     <li>
                     <a href="source-repository.html">Source Repository</a>
@@ -140,18 +140,23 @@
     </div>
     <div id="bodyColumn">
       <div id="contentBox">
-        <div class="section"><h2>GitHub Deploy Maven Plugin<a name="GitHub_Deploy_Maven_Plugin"></a></h2><p>This plugin will augment the normal Maven artifact deployment process by also deploying the artifacts to an associated GitHub project as file downloads.</p><p>With a variety of configuration options you can control which artifacts will be deployed, whether or not they'll replace existing downloads of the same name, or an alternate GitHub project the artifacts should be deployed to.</p><div class="section"><h3>Usage<a name="Usage"></a></h3><p>The base configuration for the plugin will deploy all attached artifacts without replacing any existing downloads of the same name.</p><div><pre>&lt;plugin&gt;
-    &lt;groupId&gt;com.jakewharton&lt;/groupId&gt;
-    &lt;artifactId&gt;github-deploy-maven-plugin&lt;/artifactId&gt;
-    &lt;version&gt;1.0.0&lt;/version&gt;
-    &lt;execution&gt;
-        &lt;execution&gt;
-            &lt;goals&gt;
-                &lt;goal&gt;deploy&lt;/goal&gt;
-            &lt;/goal&gt;
-        &lt;/execution&gt;
-    &lt;/execution&gt;
-&lt;/plugin&gt;</pre></div><p>There are a range of configuration options which can control the behavior of the plugin.</p></div></div>
+        <a name="The_Team"></a><div class="section"><h2>The Team<a name="The_Team"></a></h2><p>A successful project requires many people to play many roles. Some members write code or documentation, while others are valuable as testers, submitting patches and suggestions.</p><p>The team is comprised of Members and Contributors. Members have direct access to the source of a project and actively evolve the code-base. Contributors improve the project through submission of patches and suggestions to the Members. The number of Contributors to the project is unbounded. Get involved today. All contributions to the project are greatly appreciated.</p><a name="Members"></a><div class="section"><h3>Members<a name="Members"></a></h3><p>The following is a list of developers with commit privileges that have directly contributed to the project in one way or another.</p><table border="0" class="bodyTable"><tr class="a"><th>Id</th><th>Name</th><th>Email</th><th>URL</th><th>Roles</th><th>Time Zone</th><th>Actual Time (GMT)</th></tr><tr class="b"><td><a name="jakewharton"></a>jakewharton</td><td>Jake Wharton</td><td><a class="externalLink" href="mailto:jakewharton@gmail.com">jakewharton@gmail.com</a></td><td><a class="externalLink" href="http://jakewharton.com">http://jakewharton.com</a></td><td>developer</td><td>-5</td><td><span id="developer-0">-5</span></td></tr></table></div><a name="Contributors"></a><div class="section"><h3>Contributors<a name="Contributors"></a></h3><p>There are no contributors listed for this project. Please check back again later.</p></div></div><script type="text/javascript">
+function offsetDate(id, offset) {
+    var now = new Date();
+    var nowTime = now.getTime();
+    var localOffset = now.getTimezoneOffset();
+    var developerTime = nowTime + ( offset * 60 * 60 * 1000 )+ ( localOffset * 60 * 1000 );
+    var developerDate = new Date(developerTime);
+
+    document.getElementById(id).innerHTML = developerDate;
+}
+
+function init(){
+    offsetDate('developer-0', '-5');
+}
+
+window.onLoad = init();
+</script>
       </div>
     </div>
     <div class="clear">
