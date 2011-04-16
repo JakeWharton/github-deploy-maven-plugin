@@ -3,7 +3,6 @@ package com.jakewharton.maven.plugin.github_deploy;
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -208,7 +207,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * 
 	 * @parameter
 	 */
-	private Collection<String> ignoreTypes;
+	private List<String> ignoreTypes;
 	
     /**
      * Packaged artifact.
@@ -739,10 +738,10 @@ public class GitHubDeployMojo extends AbstractMojo {
 	void setHttpClient(HttpClient httpClient) {
 		this.httpClient = httpClient;
 	}
-	Collection<String> getIgnoreTypes() {
+	List<String> getIgnoreTypes() {
 		return ignoreTypes;
 	}
-	void setIgnoreTypes(Collection<String> ignoreTypes) {
+	void setIgnoreTypes(List<String> ignoreTypes) {
 		this.ignoreTypes = ignoreTypes;
 	}
 	List<Artifact> getAttachedArtifacts() {
