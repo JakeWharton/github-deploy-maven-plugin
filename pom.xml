@@ -19,6 +19,7 @@
 		<json.version>20090211</json.version>
 		<apache.http.version>4.1.1</apache.http.version>
 		<apache.commons.version>2.0.1</apache.commons.version>
+		<plexus.version>2.0.6</plexus.version>
 		
 		<junit.version>4.8.2</junit.version>
 
@@ -108,6 +109,11 @@
 			<groupId>commons-io</groupId>
 			<artifactId>commons-io</artifactId>
 			<version>${apache.commons.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.codehaus.plexus</groupId>
+			<artifactId>plexus-utils</artifactId>
+			<version>${plexus.version}</version>
 		</dependency>
 		
 		<dependency>
