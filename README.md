@@ -11,6 +11,52 @@ Usage
 TODO: usage
 
 
+Example
+-------
+
+`pom.xml` `<plugin>` configuration:
+
+    <plugin>
+        <groupId>com.jakewharton</groupId>
+        <artifactId>github-deploy-maven-plugin</artifactId>
+        <version>1.0.0</version>
+        <configuration>
+            <replaceExisting>true</replaceExisting>
+            <ignoreTypes>
+                <ignoreType>java-source</ignoreType>
+            </ignoreTypes>
+        </configuration>
+        <executions>
+            <execution>
+                <goals>
+                    <goal>deploy</goal>
+                </goals>
+            </execution>
+        </executions>
+    </plugin>
+
+`mvn deploy` partial output:
+
+    [INFO] [github-deploy:deploy {execution: default}]
+    [INFO] Assembling list of valid artifacts for deployment...
+    [INFO] - Valid: github-deploy-maven-plugin-test-1.0.0-SNAPSHOT.jar (jar)
+    [INFO] - Valid: github-deploy-maven-plugin-test-1.0.0-SNAPSHOT-javadoc.jar (javadoc)
+    [INFO] - Ignore: github-deploy-maven-plugin-test-1.0.0-SNAPSHOT-sources.jar (java-source)
+    [INFO] 
+    [INFO] Assembling list of existing downloads...
+    [INFO] - Delete: github-deploy-maven-plugin-test-1.0.0-SNAPSHOT.jar
+    [INFO] 
+    [INFO] Deploying "github-deploy-maven-plugin-test-1.0.0-SNAPSHOT.jar"...
+    [INFO] - Sending artifact information and obtaining upload credentials...
+    [INFO] - Uploading artifact to remote server...
+    [INFO] 
+    [INFO] Deploying "github-deploy-maven-plugin-test-1.0.0-SNAPSHOT-javadoc.jar"...
+    [INFO] - Sending artifact information and obtaining upload credentials...
+    [INFO] - Uploading artifact to remote server...
+    [INFO] 
+    [INFO] Successfully deployed 2 artifacts.
+
+
 Documentation
 -------------
 
