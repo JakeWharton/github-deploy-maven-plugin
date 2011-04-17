@@ -10,6 +10,12 @@ New Features:
    the artifact types which will be deployed.
 
 
+Bug Fixes:
+
+ * Correct automatic resolution of repository information from the
+   `<developerConnection>` URL when executed within a project module.
+
+
 Version 1.0.0 *(2011-04-15)*
 ----------------------------
 

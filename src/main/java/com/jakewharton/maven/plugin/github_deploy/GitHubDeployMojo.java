@@ -96,7 +96,7 @@ public class GitHubDeployMojo extends AbstractMojo {
 	/** Git command to get GitHub user token. */
 	private static final String[] GIT_GITHUB_TOKEN = new String[] { "git", "config", "--global", "github.token" };
 	/** Regular expression to validate the pom.xml's SCM value. */
-	private static final Pattern REGEX_REPO = Pattern.compile("^scm:git:git@github.com:(.+?)/(.+?)\\.git$");
+	private static final Pattern REGEX_REPO = Pattern.compile("^scm:git:git@github.com:(.+?)/(.+?)\\.git(?:/.*?)?$");
 	/** Regular expression to get the downloads authentication token. */
 	private static final Pattern REGEX_AUTH_TOKEN = Pattern.compile("<script>window._auth_token = \"([0-9a-f]+)\"</script>");
 	/** Regular expression to locate existing download entries. */
