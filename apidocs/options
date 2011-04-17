@@ -15,7 +15,7 @@
 -docencoding
 'UTF-8'
 -doctitle
-'GitHub Deploy Maven Plugin 1.0.0 API'
+'GitHub Deploy Maven Plugin 1.0.1 API'
 -link
 'http://download.oracle.com/javase/6/docs/api'
 -link
@@ -23,4 +23,4 @@
 -use
 -version
 -windowtitle
-'GitHub Deploy Maven Plugin 1.0.0 API'
+'GitHub Deploy Maven Plugin 1.0.1 API'
