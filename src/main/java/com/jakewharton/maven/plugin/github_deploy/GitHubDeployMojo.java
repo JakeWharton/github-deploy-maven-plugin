@@ -88,6 +88,8 @@ public class GitHubDeployMojo extends AbstractMojo {
 	static final String ERROR_NO_CREDENTIALS = STRINGS.getString("ERROR_NO_CREDENTIALS");
 	/** GitHub authentication token error message. */
 	static final String ERROR_AUTH_TOKEN = STRINGS.getString("ERROR_AUTH_TOKEN");
+	/** Types and ignores specified error message. */
+	static final String ERROR_TYPES_AND_IGNORES = STRINGS.getString("ERROR_TYPES_AND_IGNORES");
 
 	/** Git command to get GitHub user login. */
 	private static final String[] GIT_GITHUB_USER = new String[] { "git", "config", "--global", "github.user" };
@@ -208,6 +210,13 @@ public class GitHubDeployMojo extends AbstractMojo {
 	 * @parameter
 	 */
 	private List<String> ignoreTypes;
+	
+	/**
+	 * Explicit list of artifact types to deploy.
+	 * 
+	 * @parameter
+	 */
+	private List<String> types;
 	
     /**
      * Packaged artifact.
@@ -455,6 +464,11 @@ public class GitHubDeployMojo extends AbstractMojo {
 		this.getLog().info(INFO_ARTIFACTS);
 		this.getLog().debug("Assembling deploy targets...");
 		
+		//Make sure only one or neither of the type list and ignore list were specified
+		if ((this.types != null) && (this.types.size() > 0) && (this.ignoreTypes != null) && (this.ignoreTypes.size() > 0)) {
+			this.error(ERROR_TYPES_AND_IGNORES);
+		}
+		
 		Map<String, Artifact> artifacts = new HashMap<String, Artifact>();
 		
 		this.checkAddArtifact(artifacts, this.artifact);
@@ -479,9 +493,10 @@ public class GitHubDeployMojo extends AbstractMojo {
 		
 		//Check if the artifact is a valid upload candidate
 		if ((checkArtifact.getFile() != null) && (checkArtifact.getFile().isFile())) {
-			//Check that this artifact's type is not being ignored
-			this.getLog().debug(String.format("  . Checking artifact type (%s) is not explicity being ignored.", checkArtifact.getType()));
-			if ((this.ignoreTypes != null) && this.ignoreTypes.contains(checkArtifact.getType())) {
+			//Check if the artifact's type is ignored or absent from type list
+			this.getLog().debug(String.format("  . Checking artifact type (%s) is ignored or absent from type list.", checkArtifact.getType()));
+			if ((this.types != null) && !this.types.contains(checkArtifact.getType())
+				|| (this.ignoreTypes != null) && this.ignoreTypes.contains(checkArtifact.getType())) {
 				this.getLog().info(String.format(INFO_ARTIFACT_IGNORE, checkArtifact.getFile().getName(), checkArtifact.getType()));
 			} else {
 				//Check so duplicate artifact deployments are not attempted
@@ -743,6 +758,12 @@ public class GitHubDeployMojo extends AbstractMojo {
 	}
 	void setIgnoreTypes(List<String> ignoreTypes) {
 		this.ignoreTypes = ignoreTypes;
+	}
+	List<String> getTypes() {
+		return types;
+	}
+	void setTypes(List<String> types) {
+		this.types = types;
 	}
 	List<Artifact> getAttachedArtifacts() {
 		return attachedArtifacts;

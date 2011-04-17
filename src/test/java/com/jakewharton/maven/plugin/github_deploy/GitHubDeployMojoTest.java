@@ -52,5 +52,6 @@ public class GitHubDeployMojoTest extends TestCase {
 		Assert.assertNotNull(GitHubDeployMojo.ERROR_DEPLOY_INFO);
 		Assert.assertNotNull(GitHubDeployMojo.ERROR_NO_CREDENTIALS);
 		Assert.assertNotNull(GitHubDeployMojo.ERROR_AUTH_TOKEN);
+		Assert.assertNotNull(GitHubDeployMojo.ERROR_TYPES_AND_IGNORES);
 	}
 }
