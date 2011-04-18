@@ -191,6 +191,13 @@ public class GitHubDeployMojo extends AbstractMojo {
 	private boolean replaceExisting;
 	
 	/**
+	 * Delete all existing downloads.
+	 * 
+	 * @parameter default-value="false"
+	 */
+	private boolean deleteAllExisting;
+	
+	/**
 	 * GitHub login name.
 	 * 
 	 * @parameter
@@ -511,27 +518,37 @@ public class GitHubDeployMojo extends AbstractMojo {
 	}
 
 	/**
-	 * Delete existing download for any artifacs in a list if they exist.
+	 * Delete existing downloads for any artifacts in a list if they exist, or,
+	 * if {@link #deleteAllExisting} is <code>true</code>, delete all.
 	 * 
 	 * @param artifacts Artifact list.
 	 * @throws MojoFailureException
 	 */
 	private void deleteAnyExisting(List<Artifact> artifacts) throws MojoFailureException {
-		this.getLog().debug("Deleting any existing downloads which match pending artifact deployments...");
-		
-		for (Artifact artifact : artifacts) {
-			//Check if artifact download exists already
-			this.getLog().debug(String.format("  . Checking for \"%s\".", artifact.getFile().getName()));
-			if (this.existingDownloads.containsKey(artifact.getFile().getName())) {
-				this.getLog().debug("  . Artifact already has an existing download.");
-				//Handle existing download
-				if (this.replaceExisting) {
-					this.deleteExistingDownload(this.existingDownloads.get(artifact.getFile().getName()));
-				} else {
-					this.error(String.format(ERROR_DOWNLOAD_EXISTS, artifact.getFile().getName()));
+		if (this.deleteAllExisting) {
+			this.getLog().debug("Deleting all existing downloads...");
+			
+			for (Map.Entry<String, GitHubDownload> downloadEntry : this.existingDownloads.entrySet()) {
+				this.deleteExistingDownload(downloadEntry.getValue());
+			}
+		} else {
+			this.getLog().debug("Deleting any existing downloads which match pending artifact deployments...");
+			
+			for (Artifact artifact : artifacts) {
+				//Check if artifact download exists already
+				this.getLog().debug(String.format("  . Checking for \"%s\".", artifact.getFile().getName()));
+				if (this.existingDownloads.containsKey(artifact.getFile().getName())) {
+					this.getLog().debug("  . Artifact already has an existing download.");
+					//Handle existing download
+					if (this.replaceExisting) {
+						this.deleteExistingDownload(this.existingDownloads.get(artifact.getFile().getName()));
+					} else {
+						this.error(String.format(ERROR_DOWNLOAD_EXISTS, artifact.getFile().getName()));
+					}
 				}
 			}
 		}
+		
 		
 		this.getLog().info("");
 	}
@@ -722,6 +739,12 @@ public class GitHubDeployMojo extends AbstractMojo {
 	}
 	void setReplaceExisting(boolean replaceExisting) {
 		this.replaceExisting = replaceExisting;
+	}
+	boolean isDeleteAllExisting() {
+		return this.deleteAllExisting;
+	}
+	void setDeleteAllExisting(boolean deleteAllExisting) {
+		this.deleteAllExisting = deleteAllExisting;
 	}
 	String getGithubLogin() {
 		return this.githubLogin;

@@ -1,6 +1,16 @@
 Change Log
 ==========
 
+Version 1.0.2 *(In Development)*
+--------------------------------
+
+New Features:
+
+ * Added `<deleteAllExisting>` boolean configuration option which will delete
+   **all** existing downloads prior to uploading any artifacts. (**WARNING**:
+   This configuration option is extremely volatile and should be used with care)
+
+
 Version 1.0.1 *(2011-04-17)*
 ----------------------------
 
